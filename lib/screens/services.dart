@@ -146,25 +146,26 @@ class _ServicesScreenState extends State<ServicesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF121212),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Color(0xFF1E1E1E),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
+          icon:
+              Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Services',
           style: GoogleFonts.montserrat(
-            color: Colors.white,
+            color: Theme.of(context).textTheme.titleLarge?.color,
             fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.search, color: Color(0xFF8A4FFF)),
+            icon: Icon(Icons.search, color: Theme.of(context).primaryColor),
             onPressed: () {
               // Implement search functionality
             },
@@ -178,13 +179,22 @@ class _ServicesScreenState extends State<ServicesScreen> {
             padding: const EdgeInsets.all(16.0),
             child: TextField(
               controller: searchController,
-              style: GoogleFonts.roboto(color: Colors.white),
+              style: GoogleFonts.roboto(
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
               decoration: InputDecoration(
-                fillColor: Color.fromARGB(255, 255, 255, 255),
+                fillColor: Theme.of(context).cardColor,
                 filled: true,
                 hintText: 'Search services...',
-                hintStyle: GoogleFonts.roboto(color: Colors.grey),
-                prefixIcon: Icon(Icons.search, color: Color(0xFF8A4FFF)),
+                hintStyle: GoogleFonts.roboto(
+                  color: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.color
+                      ?.withOpacity(0.5),
+                ),
+                prefixIcon:
+                    Icon(Icons.search, color: Theme.of(context).primaryColor),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -216,18 +226,23 @@ class _ServicesScreenState extends State<ServicesScreen> {
                       padding:
                           EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       decoration: BoxDecoration(
-                        color:
-                            isSelected ? Color(0xFF8A4FFF) : Colors.transparent,
+                        color: isSelected
+                            ? Theme.of(context).primaryColor
+                            : Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isSelected ? Color(0xFF8A4FFF) : Colors.grey,
+                          color: isSelected
+                              ? Theme.of(context).primaryColor
+                              : Theme.of(context).dividerColor,
                           width: 1,
                         ),
                       ),
                       child: Text(
                         category,
                         style: GoogleFonts.roboto(
-                          color: isSelected ? Colors.white : Colors.grey,
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.onPrimary
+                              : Theme.of(context).textTheme.bodyMedium?.color,
                           fontWeight:
                               isSelected ? FontWeight.w600 : FontWeight.normal,
                         ),
@@ -249,7 +264,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                 return Container(
                   margin: EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: Color(0xFF1E1E1E),
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
@@ -258,13 +273,14 @@ class _ServicesScreenState extends State<ServicesScreen> {
                         contentPadding: EdgeInsets.all(16),
                         leading: CircleAvatar(
                           radius: 30,
-                          backgroundColor: Color(0xFF8A4FFF),
+                          backgroundColor: Theme.of(context).primaryColor,
                           backgroundImage: AssetImage(service.imageUrl),
                         ),
                         title: Text(
                           service.name,
                           style: GoogleFonts.montserrat(
-                            color: Colors.white,
+                            color:
+                                Theme.of(context).textTheme.titleLarge?.color,
                             fontWeight: FontWeight.w600,
                             fontSize: 16,
                           ),
@@ -276,7 +292,10 @@ class _ServicesScreenState extends State<ServicesScreen> {
                             Text(
                               'Location: ${service.location}',
                               style: GoogleFonts.roboto(
-                                color: Colors.grey,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.color,
                                 fontSize: 14,
                               ),
                             ),
@@ -292,11 +311,19 @@ class _ServicesScreenState extends State<ServicesScreen> {
                                 ),
                                 SizedBox(width: 16),
                                 Icon(Icons.currency_rupee,
-                                    color: Colors.white70, size: 16),
+                                    color: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.color,
+                                    size: 16),
                                 Text(
                                   '${service.pricePerDay} Rupees/Day',
-                                  style:
-                                      GoogleFonts.roboto(color: Colors.white70),
+                                  style: GoogleFonts.roboto(
+                                    color: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.color,
+                                  ),
                                 ),
                               ],
                             ),
@@ -307,7 +334,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                             service.isBookmarked
                                 ? Icons.bookmark
                                 : Icons.bookmark_border,
-                            color: Color(0xFF8A4FFF),
+                            color: Theme.of(context).primaryColor,
                           ),
                           onPressed: () {
                             setState(() {
@@ -334,7 +361,9 @@ class _ServicesScreenState extends State<ServicesScreen> {
                               // Implement booking functionality
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(0xFF8A4FFF),
+                              backgroundColor: Theme.of(context).primaryColor,
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.onPrimary,
                               padding: EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
@@ -343,7 +372,6 @@ class _ServicesScreenState extends State<ServicesScreen> {
                             child: Text(
                               'Book Now',
                               style: GoogleFonts.montserrat(
-                                color: Colors.white,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 16,
                               ),

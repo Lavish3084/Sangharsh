@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:majdoor/screens/dashboard.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({Key? key}) : super(key: key);
@@ -11,22 +12,39 @@ class AccountScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          icon: Icon(
+            Icons.arrow_back,
+            color: Theme.of(context).iconTheme.color,
+          ),
+          onPressed: () => Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => DashboardScreen()),
+          ),
         ),
         title: Text(
           'Account',
           style: GoogleFonts.roboto(
-            color: Colors.white,
+            color: Theme.of(context).textTheme.titleLarge?.color,
             fontSize: 24,
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.settings,
+              color: Theme.of(context).primaryColor,
+            ),
+            onPressed: () {
+              Navigator.pushNamed(context, '/settings');
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -51,7 +69,7 @@ class AccountScreen extends StatelessWidget {
                         Text(
                           'Santraam',
                           style: GoogleFonts.roboto(
-                            color: Colors.white,
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
@@ -59,7 +77,8 @@ class AccountScreen extends StatelessWidget {
                         Text(
                           'Thekedaar',
                           style: GoogleFonts.roboto(
-                            color: Colors.grey,
+                            color:
+                                Theme.of(context).textTheme.bodyMedium?.color,
                             fontSize: 14,
                           ),
                         ),
@@ -98,7 +117,7 @@ class AccountScreen extends StatelessWidget {
               Text(
                 'Bussiness Management',
                 style: GoogleFonts.roboto(
-                  color: Colors.white,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -130,7 +149,7 @@ class AccountScreen extends StatelessWidget {
               Text(
                 'Support',
                 style: GoogleFonts.roboto(
-                  color: Colors.white,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -162,7 +181,7 @@ class AccountScreen extends StatelessWidget {
               Text(
                 'Preferences',
                 style: GoogleFonts.roboto(
-                  color: Colors.white,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -208,9 +227,12 @@ class AccountScreen extends StatelessWidget {
       onTap: () => _navigateToScreen(context, route),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(
-            top: BorderSide(color: Colors.grey, width: 0.2),
+            top: BorderSide(
+              color: Theme.of(context).dividerColor,
+              width: 0.2,
+            ),
           ),
         ),
         child: Row(
@@ -219,13 +241,13 @@ class AccountScreen extends StatelessWidget {
             Text(
               title,
               style: GoogleFonts.roboto(
-                color: Colors.white,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
                 fontSize: 16,
               ),
             ),
-            const Icon(
+            Icon(
               Icons.chevron_right,
-              color: Colors.grey,
+              color: Theme.of(context).iconTheme.color,
             ),
           ],
         ),
@@ -243,9 +265,12 @@ class AccountScreen extends StatelessWidget {
       onTap: () => _navigateToScreen(context, route),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(
-            top: BorderSide(color: Colors.grey, width: 0.2),
+            top: BorderSide(
+              color: Theme.of(context).dividerColor,
+              width: 0.2,
+            ),
           ),
         ),
         child: Row(
@@ -254,7 +279,7 @@ class AccountScreen extends StatelessWidget {
             Text(
               title,
               style: GoogleFonts.roboto(
-                color: Colors.white,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
                 fontSize: 16,
               ),
             ),
@@ -263,14 +288,14 @@ class AccountScreen extends StatelessWidget {
                 Text(
                   value,
                   style: GoogleFonts.roboto(
-                    color: Colors.grey,
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
                     fontSize: 16,
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Icon(
+                Icon(
                   Icons.chevron_right,
-                  color: Colors.grey,
+                  color: Theme.of(context).iconTheme.color,
                 ),
               ],
             ),

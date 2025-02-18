@@ -3,6 +3,7 @@ import 'package:majdoor/screens/loginscreen.dart';
 import 'dart:async';
 
 import 'package:majdoor/screens/otp.dart';
+import 'package:majdoor/screens/selectlanguage.dart';
 
 class SplashScreen extends StatefulWidget {
   @override

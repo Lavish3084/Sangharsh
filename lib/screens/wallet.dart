@@ -1,234 +1,224 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../services/wallet_provider.dart';
 
 class WalletScreen extends StatefulWidget {
+  const WalletScreen({Key? key}) : super(key: key);
+
   @override
   State<WalletScreen> createState() => _WalletScreenState();
 }
 
 class _WalletScreenState extends State<WalletScreen> {
-  // Custom color scheme for dark theme
-  final Color primaryColor = const Color(0xFFECECEC);
-  final Color accentColor = const Color(0xFF00B894);
-  final Color backgroundColor = const Color(0xFF1A1A1A);
-  final Color cardColor = const Color(0xFF2D2D2D);
+  final TextEditingController _amountController = TextEditingController();
 
-  String? selectedAmount;
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: backgroundColor,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: primaryColor),
-          onPressed: () => Navigator.pop(context),
+    return Consumer<WalletProvider>(
+      builder: (context, wallet, child) {
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          appBar: AppBar(
+            backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+            elevation: 0,
+            title: Text(
+              'Wallet',
+              style: GoogleFonts.montserrat(
+                color: Theme.of(context).textTheme.titleLarge?.color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          body: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Balance Card
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Theme.of(context).primaryColor,
+                          Theme.of(context).primaryColor.withOpacity(0.8),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Available Balance',
+                          style: GoogleFonts.montserrat(
+                            color: Colors.white70,
+                            fontSize: 16,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          '₹${wallet.balance.toStringAsFixed(2)}',
+                          style: GoogleFonts.montserrat(
+                            color: Colors.white,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 24),
+
+                  // Quick Add Money Options
+                  Text(
+                    'Quick Add Money',
+                    style: GoogleFonts.montserrat(
+                      color: Theme.of(context).textTheme.titleMedium?.color,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildQuickAddButton(context, wallet, 100),
+                      _buildQuickAddButton(context, wallet, 500),
+                      _buildQuickAddButton(context, wallet, 1000),
+                    ],
+                  ),
+                  SizedBox(height: 24),
+
+                  // Custom Amount
+                  Text(
+                    'Add Custom Amount',
+                    style: GoogleFonts.montserrat(
+                      color: Theme.of(context).textTheme.titleMedium?.color,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  TextField(
+                    controller: _amountController,
+                    keyboardType: TextInputType.number,
+                    style: TextStyle(
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Theme.of(context).cardColor,
+                      labelText: 'Enter Amount',
+                      labelStyle: TextStyle(
+                        color: Theme.of(context).textTheme.bodyMedium?.color,
+                      ),
+                      prefixText: '₹ ',
+                      prefixStyle: TextStyle(
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).dividerColor,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).dividerColor,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () async {
+                        final amount = double.tryParse(_amountController.text);
+                        if (amount != null && amount > 0) {
+                          await wallet.addBalance(amount);
+                          _amountController.clear();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('₹$amount added successfully'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      },
+                      child: Text(
+                        'Add Money',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildQuickAddButton(
+      BuildContext context, WalletProvider wallet, int amount) {
+    return InkWell(
+      onTap: () async {
+        await wallet.addBalance(amount.toDouble());
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('₹$amount added successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Theme.of(context).dividerColor,
+          ),
         ),
-        title: Text(
-          'Wallet Cash',
-          style: GoogleFonts.poppins(
-            color: primaryColor,
+        child: Text(
+          '₹$amount',
+          style: GoogleFonts.montserrat(
+            color: Theme.of(context).textTheme.bodyLarge?.color,
             fontWeight: FontWeight.w600,
           ),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: EdgeInsets.all(24.0),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    accentColor,
-                    accentColor.withOpacity(0.8),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20.0),
-                boxShadow: [
-                  BoxShadow(
-                    color: accentColor.withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Available Balance',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white.withOpacity(0.9),
-                          fontSize: 16.0,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        '₹0',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: 32.0,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding: EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.account_balance_wallet,
-                      color: Colors.white,
-                      size: 32.0,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 32.0),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildFeatureItem(Icons.flash_on, 'Easy & Fast\nPayments'),
-                _buildFeatureItem(Icons.refresh, 'Instant\nRefunds'),
-                _buildFeatureItem(Icons.local_offer, 'Exclusive\nOffers'),
-              ],
-            ),
-            SizedBox(height: 32.0),
-            Text(
-              'Add Money to Wallet',
-              style: GoogleFonts.poppins(
-                fontSize: 20.0,
-                fontWeight: FontWeight.w600,
-                color: primaryColor,
-              ),
-            ),
-            SizedBox(height: 16.0),
-            TextField(
-              style: GoogleFonts.poppins(color: primaryColor),
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: cardColor),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: cardColor),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: accentColor),
-                ),
-                filled: true,
-                fillColor: cardColor,
-                labelText: 'Enter Amount',
-                labelStyle: GoogleFonts.poppins(color: Colors.grey),
-                prefixIcon: Icon(Icons.currency_rupee, color: accentColor),
-              ),
-            ),
-            SizedBox(height: 16.0),
-            Wrap(
-              spacing: 12.0,
-              runSpacing: 12.0,
-              children: [
-                _buildAmountChip('₹500', isSelected: selectedAmount == '₹500'),
-                _buildAmountChip('₹1000',
-                    isSelected: selectedAmount == '₹1000'),
-                _buildAmountChip('₹2000',
-                    isSelected: selectedAmount == '₹2000'),
-                _buildAmountChip('₹5000',
-                    isSelected: selectedAmount == '₹5000'),
-              ],
-            ),
-            SizedBox(height: 32.0),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: accentColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 2,
-                ),
-                child: Text(
-                  'Add Balance',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFeatureItem(IconData icon, String text) {
-    return Column(
-      children: [
-        Container(
-          padding: EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: accentColor.withOpacity(0.3)),
-          ),
-          child: Icon(icon, color: accentColor, size: 24),
-        ),
-        SizedBox(height: 8),
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            color: primaryColor,
-            height: 1.2,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAmountChip(String amount, {bool isSelected = false}) {
-    return ChoiceChip(
-      label: Text(
-        amount,
-        style: GoogleFonts.poppins(
-          color: isSelected ? Colors.white : primaryColor,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      selected: isSelected,
-      selectedColor: accentColor,
-      backgroundColor: cardColor,
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
-      onSelected: (bool selected) {
-        setState(() {
-          selectedAmount = selected ? amount : null;
-        });
-      },
     );
   }
 }

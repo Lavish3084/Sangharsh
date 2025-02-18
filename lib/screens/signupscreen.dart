@@ -20,6 +20,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final ImagePicker picker = ImagePicker();
     showModalBottomSheet(
       context: context,
+      backgroundColor: Theme.of(context).cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20.0)),
       ),
@@ -29,10 +30,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading:
-                  const Icon(Icons.camera_alt_rounded, color: Colors.white),
-              title: const Text("Take a Photo",
-                  style: TextStyle(color: Colors.white)),
+              leading: Icon(
+                Icons.camera_alt_rounded,
+                color: Theme.of(context).iconTheme.color,
+              ),
+              title: Text(
+                "Take a Photo",
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
               onTap: () async {
                 Navigator.pop(context);
                 final XFile? image =
@@ -49,10 +56,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
               },
             ),
             ListTile(
-              leading:
-                  const Icon(Icons.photo_library_rounded, color: Colors.white),
-              title: const Text("Choose from Gallery",
-                  style: TextStyle(color: Colors.white)),
+              leading: Icon(
+                Icons.photo_library_rounded,
+                color: Theme.of(context).iconTheme.color,
+              ),
+              title: Text(
+                "Choose from Gallery",
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
               onTap: () async {
                 Navigator.pop(context);
                 final XFile? image =
@@ -98,26 +111,29 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
-        backgroundColor: Colors.grey[100],
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SingleChildScrollView(
           child: Container(
             padding: const EdgeInsets.all(20.0),
             child: Column(
               children: [
                 const SizedBox(height: 30.0),
-                const Text(
+                Text(
                   "SIGN UP",
                   style: TextStyle(
                     fontSize: 28.0,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                    color: Theme.of(context).textTheme.titleLarge?.color,
                   ),
                 ),
                 const SizedBox(height: 10.0),
-                const Text(
+                Text(
                   "Create your account to get started!",
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16.0, color: Colors.black54),
+                  style: TextStyle(
+                    fontSize: 16.0,
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                  ),
                 ),
                 const SizedBox(height: 30.0),
 
@@ -166,69 +182,90 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget _buildTextField(String label, IconData icon) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12.0),
         boxShadow: [
           BoxShadow(
-              color: Colors.black12, blurRadius: 6.0, offset: Offset(0, 2)),
+            color: Theme.of(context).shadowColor.withOpacity(0.1),
+            blurRadius: 6.0,
+            offset: Offset(0, 2),
+          ),
         ],
       ),
       child: TextFormField(
         decoration: InputDecoration(
           filled: true,
-          fillColor: Colors.white,
+          fillColor: Theme.of(context).cardColor,
           labelText: label,
-          labelStyle: TextStyle(color: Colors.black),
-          prefixIcon: Icon(icon, color: Colors.black),
+          labelStyle:
+              TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+          prefixIcon: Icon(icon, color: Theme.of(context).iconTheme.color),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12.0),
-            borderSide: BorderSide(color: Colors.black, width: 1.5),
+            borderSide: BorderSide(color: Theme.of(context).dividerColor),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12.0),
-            borderSide: BorderSide(color: Colors.grey, width: 1),
+            borderSide: BorderSide(color: Theme.of(context).dividerColor),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12.0),
-            borderSide: BorderSide(color: Colors.black, width: 2),
+            borderSide:
+                BorderSide(color: Theme.of(context).primaryColor, width: 2),
           ),
-          contentPadding:
-              EdgeInsets.symmetric(vertical: 14.0, horizontal: 12.0),
         ),
-        style: TextStyle(color: Colors.black),
+        style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
       ),
     );
   }
 
   Widget _buildDropdown() {
     return DropdownButtonFormField<String>(
-      value: selectedId, // Must be null initially to show hint
+      value: selectedId,
+      dropdownColor: Theme.of(context).cardColor,
+      style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
       decoration: InputDecoration(
         filled: true,
-        fillColor: Colors.white,
-        labelText: "Select ID Type", // Static label, always visible
-        labelStyle: TextStyle(color: Colors.black),
-        prefixIcon: Icon(Icons.badge, color: Colors.black),
+        fillColor: Theme.of(context).cardColor,
+        labelText: "Select ID Type",
+        labelStyle:
+            TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+        prefixIcon: Icon(Icons.badge, color: Theme.of(context).iconTheme.color),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
       ),
-      dropdownColor: Colors.white, // Ensures dropdown background is white
-      icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
-      hint:
-          Text("Select", style: TextStyle(color: Colors.black)), // Correct hint
       items: [
         DropdownMenuItem(
-            value: "PAN",
-            child: Text("PAN", style: TextStyle(color: Colors.black))),
+          value: "PAN",
+          child: Text(
+            "PAN",
+            style:
+                TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+          ),
+        ),
         DropdownMenuItem(
-            value: "Aadhar",
-            child: Text("Aadhar", style: TextStyle(color: Colors.black))),
+          value: "Aadhar",
+          child: Text(
+            "Aadhar",
+            style:
+                TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+          ),
+        ),
         DropdownMenuItem(
-            value: "Voter ID",
-            child: Text("Voter ID", style: TextStyle(color: Colors.black))),
+          value: "Voter ID",
+          child: Text(
+            "Voter ID",
+            style:
+                TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+          ),
+        ),
         DropdownMenuItem(
-            value: "Driving License",
-            child:
-                Text("Driving License", style: TextStyle(color: Colors.black))),
+          value: "Driving License",
+          child: Text(
+            "Driving License",
+            style:
+                TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+          ),
+        ),
       ],
       onChanged: (value) {
         setState(() {
@@ -240,19 +277,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   Widget _buildUploadButton() {
     return ElevatedButton(
-      style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+      ),
       onPressed: () {
         if (selectedId == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content:
-                    Text("Please select an ID type before uploading proof.")),
+            SnackBar(
+              content: Text("Please select an ID type before uploading proof."),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
           );
         } else {
           _showImagePickerOptions();
         }
       },
-      child: const Text("UPLOAD PROOF", style: TextStyle(color: Colors.white)),
+      child: Text("UPLOAD PROOF"),
     );
   }
 
@@ -276,16 +317,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text(
+        Text(
           "Already have an account? ",
-          style: TextStyle(color: Colors.black),
+          style: TextStyle(
+            color: Theme.of(context).textTheme.bodyMedium?.color,
+          ),
         ),
         GestureDetector(
           onTap: () => Navigator.pushReplacement(
-              context, MaterialPageRoute(builder: (context) => LoginPage())),
-          child: const Text("Login",
-              style:
-                  TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            context,
+            MaterialPageRoute(builder: (context) => LoginPage()),
+          ),
+          child: Text(
+            "Login",
+            style: TextStyle(
+              color: Theme.of(context).primaryColor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
       ],
     );

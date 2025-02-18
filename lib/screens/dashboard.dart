@@ -2,10 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:majdoor/screens/account.dart';
 import 'package:majdoor/screens/history.dart';
-import 'package:majdoor/services/services.dart';
+import 'package:majdoor/screens/loginscreen.dart';
+import 'package:majdoor/screens/services.dart';
 import 'package:majdoor/screens/wallet.dart';
 import 'package:majdoor/widgets/Uihelper.dart';
 import 'package:majdoor/services/bottumnavbar.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:majdoor/screens/mapscreen.dart';
+import 'package:geocoding/geocoding.dart';
+import 'savedlocations.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
+import 'package:majdoor/services/wallet_provider.dart';
+import 'package:majdoor/services/booking.dart';
+import 'package:majdoor/services/booking_provider.dart';
 
 class Labourer {
   final String name;
@@ -19,38 +31,53 @@ class Labourer {
 
 class DashboardScreen extends StatelessWidget {
   final List<Labourer> labourers = [
-    Labourer('Himanshu', 'Bihar, India', 4.5, 500, 'himanshu.png'),
+    Labourer('Himanshu', 'Bihar, India', 4.5, 10000, 'himanshu.png'),
     Labourer('Shaurya', 'Mumbai, India', 4.7, 600, 'shaurya.png'),
     Labourer('Lavish', 'Hyderabad, India', 4.9, 700, 'lavish.png'),
     Labourer('Prateek', 'Chennai, India', 4.6, 550, 'prateek.png'),
     Labourer('Vatan', 'Kolkata, India', 4.8, 620, 'vatan.png'),
   ];
 
+  DashboardScreen({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF121212),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Color(0xFF1E1E1E),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
+        automaticallyImplyLeading: false,
         title: Text(
           'Sangharsh',
           style: GoogleFonts.montserrat(
             fontWeight: FontWeight.w700,
-            color: Colors.white,
+            color: Theme.of(context).textTheme.titleLarge?.color,
             fontSize: 24,
           ),
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.account_balance_wallet, color: Color(0xFF8A4FFF)),
+            icon: Icon(
+              Icons.account_balance_wallet,
+              color: Theme.of(context).primaryColor,
+            ),
             onPressed: () {
-              Navigator.push(
+              Navigator.pushNamed(context, '/wallet');
+            },
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.logout,
+              color: Theme.of(context).primaryColor,
+            ),
+            onPressed: () {
+              Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => WalletScreen()),
+                MaterialPageRoute(builder: (context) => LoginPage()),
               );
             },
-          )
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -61,17 +88,27 @@ class DashboardScreen extends StatelessWidget {
               padding: const EdgeInsets.all(16.0),
               child: Container(
                 decoration: BoxDecoration(
-                  color: Color(0xFF1E1E1E),
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: TextField(
-                  style: GoogleFonts.roboto(color: Colors.white),
+                  style: GoogleFonts.roboto(
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Search for Locations',
-                    hintStyle: GoogleFonts.roboto(color: Colors.grey),
-                    prefixIcon: Icon(Icons.search, color: Color(0xFF8A4FFF)),
+                    hintStyle: GoogleFonts.roboto(
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: Theme.of(context).primaryColor,
+                    ),
                     suffixIcon: IconButton(
-                      icon: Icon(Icons.schedule, color: Color(0xFF8A4FFF)),
+                      icon: Icon(
+                        Icons.schedule,
+                        color: Theme.of(context).primaryColor,
+                      ),
                       onPressed: () {},
                     ),
                     border: InputBorder.none,
@@ -81,13 +118,13 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ),
             ),
-            _buildSectionTitle('Quick Access'),
+            _buildSectionTitle(context, 'Quick Access'),
             _buildLocationTiles(context),
-            _buildSectionTitle('Services'),
+            _buildSectionTitle(context, 'Services'),
             _buildServiceIcons(context),
             _buildPromoCard(context),
-            _buildSectionTitle('Top Rated Labourers'),
-            _buildLabourersList(),
+            _buildSectionTitle(context, 'Top Rated Labourers'),
+            _buildLabourersList(context),
           ],
         ),
       ),
@@ -95,13 +132,13 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(BuildContext context, String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Text(
         title,
         style: GoogleFonts.montserrat(
-          color: Colors.white,
+          color: Theme.of(context).textTheme.titleLarge?.color,
           fontSize: 20,
           fontWeight: FontWeight.w600,
         ),
@@ -114,33 +151,90 @@ class DashboardScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
         children: [
-          _buildLocationTile('Kharar', 'Mohali, Punjab'),
+          FutureBuilder<Map<String, String>?>(
+            future: _getCurrentLocationWithAddress(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return _buildLocationTile(
+                    context, 'Getting location...', 'Please wait');
+              }
+
+              if (snapshot.hasError) {
+                return _buildLocationTile(
+                    context, 'Location Error', 'Enable location services');
+              }
+
+              final locationData = snapshot.data;
+              if (locationData != null) {
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MapScreen(
+                          initialPosition: LatLng(
+                            double.parse(locationData['latitude']!),
+                            double.parse(locationData['longitude']!),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  child: _buildLocationTile(
+                    context,
+                    'Your Current Location',
+                    locationData['address']!,
+                  ),
+                );
+              }
+
+              return _buildLocationTile(
+                  context, 'Location Unavailable', 'Try again later');
+            },
+          ),
           SizedBox(height: 10),
-          _buildLocationTile('Guru Teg Bahadur Nagar', 'Mohali Sector 122'),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SavedLocationsScreen(),
+                ),
+              );
+            },
+            child: _buildLocationTile(
+                context, 'Saved Locations', 'View your saved places'),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildLocationTile(String title, String subtitle) {
+  Widget _buildLocationTile(
+      BuildContext context, String title, String subtitle) {
     return Container(
       decoration: BoxDecoration(
-        color: Color(0xFF1E1E1E),
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(15),
       ),
       child: ListTile(
         title: Text(
           title,
           style: GoogleFonts.roboto(
-            color: Colors.white,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
             fontWeight: FontWeight.w600,
           ),
         ),
         subtitle: Text(
           subtitle,
-          style: GoogleFonts.roboto(color: Colors.grey),
+          style: GoogleFonts.roboto(
+            color: Theme.of(context).textTheme.bodyMedium?.color,
+          ),
         ),
-        trailing: Icon(Icons.arrow_forward_ios, color: Color(0xFF8A4FFF)),
+        trailing: Icon(
+          Icons.arrow_forward_ios,
+          color: Theme.of(context).primaryColor,
+        ),
       ),
     );
   }
@@ -255,7 +349,10 @@ class DashboardScreen extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF8A4FFF), Color(0xFF5D3FD3)],
+            colors: [
+              Theme.of(context).primaryColor,
+              Theme.of(context).primaryColor.withOpacity(0.8)
+            ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -276,11 +373,14 @@ class DashboardScreen extends StatelessWidget {
                     fontSize: 16,
                   ),
                 ),
-                Text(
-                  'Terms & Conditions Apply',
-                  style: GoogleFonts.roboto(
-                    color: Colors.white70,
-                    decoration: TextDecoration.underline,
+                GestureDetector(
+                  onTap: () => _launchTermsAndConditions(context),
+                  child: Text(
+                    'Terms & Conditions Apply',
+                    style: GoogleFonts.roboto(
+                      color: Colors.white70,
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
                 ),
               ],
@@ -292,17 +392,22 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLabourersList() {
+  Widget _buildLabourersList(BuildContext context) {
+    final bookingProvider = Provider.of<BookingProvider>(context);
+
     return ListView.builder(
       shrinkWrap: true,
       physics: NeverScrollableScrollPhysics(),
       itemCount: labourers.length,
       itemBuilder: (context, index) {
+        final labourer = labourers[index];
+        final isBooked = bookingProvider.isLabourerBooked(labourer.name);
+
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Container(
             decoration: BoxDecoration(
-              color: Color(0xFF1E1E1E),
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(15),
             ),
             child: Column(
@@ -316,8 +421,8 @@ class DashboardScreen extends StatelessWidget {
                         height: 70,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border:
-                              Border.all(color: Color(0xFF8A4FFF), width: 2),
+                          border: Border.all(
+                              color: Theme.of(context).primaryColor, width: 2),
                         ),
                         child: ClipOval(
                           child: UiHelper.customimage(
@@ -331,16 +436,24 @@ class DashboardScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              labourers[index].name,
+                              labourer.name,
                               style: GoogleFonts.montserrat(
-                                color: Colors.white,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodyLarge
+                                    ?.color,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                             SizedBox(height: 4),
                             Text(
-                              'Location: ${labourers[index].location}',
-                              style: GoogleFonts.roboto(color: Colors.grey),
+                              'Location: ${labourer.location}',
+                              style: GoogleFonts.roboto(
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.color,
+                              ),
                             ),
                             SizedBox(height: 4),
                             Row(
@@ -348,18 +461,25 @@ class DashboardScreen extends StatelessWidget {
                                 Icon(Icons.star, color: Colors.amber, size: 16),
                                 SizedBox(width: 4),
                                 Text(
-                                  '${labourers[index].reviews}',
+                                  '${labourer.reviews}',
                                   style:
                                       GoogleFonts.roboto(color: Colors.amber),
                                 ),
                                 SizedBox(width: 16),
                                 Icon(Icons.credit_card,
-                                    color: Colors.white70, size: 16),
+                                    color: Theme.of(context)
+                                        .textTheme
+                                        .bodyLarge
+                                        ?.color,
+                                    size: 16),
                                 SizedBox(width: 4),
                                 Text(
-                                  '${labourers[index].Rs} Rupees/Day',
-                                  style:
-                                      GoogleFonts.roboto(color: Colors.white70),
+                                  '${labourer.Rs} Rupees/Day',
+                                  style: GoogleFonts.roboto(
+                                      color: Theme.of(context)
+                                          .textTheme
+                                          .bodyLarge
+                                          ?.color),
                                 ),
                               ],
                             ),
@@ -381,23 +501,130 @@ class DashboardScreen extends StatelessWidget {
                   padding: EdgeInsets.all(12),
                   child: SizedBox(
                     width: double.infinity,
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.pushNamed(
-                          context,
-                          '/booking',
-                          arguments: labourers[index],
-                        );
-                      },
+                    child: ElevatedButton(
+                      onPressed: isBooked
+                          ? null // Disable the button if the labourer is booked
+                          : () {
+                              final walletProvider =
+                                  Provider.of<WalletProvider>(context,
+                                      listen: false);
+                              final bookingProvider =
+                                  Provider.of<BookingProvider>(context,
+                                      listen: false); // Get the BookingProvider
+                              final labourerPrice = labourers[index].Rs.toDouble();
+
+                              if (walletProvider.canAfford(labourerPrice)) {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    backgroundColor: Theme.of(context).cardColor,
+                                    title: Text(
+                                      'Confirm Booking',
+                                      style: TextStyle(
+                                          color: Theme.of(context)
+                                              .textTheme
+                                              .titleLarge
+                                              ?.color),
+                                    ),
+                                    content: Text(
+                                      'Do you want to book this service for ₹$labourerPrice?',
+                                      style: TextStyle(
+                                          color: Theme.of(context)
+                                              .textTheme
+                                              .bodyLarge
+                                              ?.color),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: Text('Cancel'),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () async {
+                                          final success = await walletProvider
+                                              .deductBalance(labourerPrice);
+                                          if (success) {
+                                            Navigator.pop(context);
+
+                                            // Create a new Booking object
+                                            final newBooking = Booking(
+                                              id: DateTime.now()
+                                                  .millisecondsSinceEpoch
+                                                  .toString(), // Generate a unique ID
+                                              workerName: labourers[index].name,
+                                              workerType: 'Labourer', // Replace with the actual service type
+                                              price: labourerPrice,
+                                              bookingDate: DateTime.now(),
+                                              status: 'confirmed', // Or 'upcoming', depending on your logic
+                                            );
+
+                                            // Add the booking to the provider
+                                            bookingProvider.addBooking(newBooking);
+
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                    'Booking confirmed! ₹$labourerPrice deducted from wallet'),
+                                                backgroundColor: Colors.green,
+                                              ),
+                                            );
+                                          }
+                                        },
+                                        child: Text('Confirm'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              } else {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    backgroundColor: Theme.of(context).cardColor,
+                                    title: Text(
+                                      'Insufficient Balance',
+                                      style: TextStyle(
+                                          color: Theme.of(context)
+                                              .textTheme
+                                              .titleLarge
+                                              ?.color),
+                                    ),
+                                    content: Text(
+                                      'Please add money to your wallet to book this service.',
+                                      style: TextStyle(
+                                          color: Theme.of(context)
+                                              .textTheme
+                                              .bodyLarge
+                                              ?.color),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: Text('Cancel'),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () {
+                                          Navigator.pop(context);
+                                          Navigator.pushNamed(context, '/wallet');
+                                        },
+                                        child: Text('Add Money'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+                            },
                       style: TextButton.styleFrom(
-                        backgroundColor: Color(0xFF8A4FFF),
+                        backgroundColor: isBooked
+                            ? Colors.grey // Change button color when disabled
+                            : Theme.of(context).primaryColor,
                         padding: EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                       child: Text(
-                        'Book Now',
+                        isBooked ? 'Already Booked' : 'Book Now', // Change button text
                         style: GoogleFonts.montserrat(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
@@ -416,40 +643,88 @@ class DashboardScreen extends StatelessWidget {
   }
 
   Widget _buildBottomNavigationBar(BuildContext context) {
-    return BottomNavigationBar(
-      backgroundColor: Color(0xFF1E1E1E),
-      type: BottomNavigationBarType.fixed,
-      selectedItemColor: Color(0xFF8A4FFF),
-      unselectedItemColor: Colors.grey,
-      items: [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-        BottomNavigationBarItem(icon: Icon(Icons.build), label: 'Services'),
-        BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
-        BottomNavigationBarItem(
-            icon: Icon(Icons.account_circle), label: 'Account'),
-      ],
-      onTap: (index) {
-        switch (index) {
-          case 0:
-            Navigator.push(context,
-                MaterialPageRoute(builder: (context) => DashboardScreen()));
-            break;
-          /*case 1:
-          Navigator.push(context, MaterialPageRoute(builder: (context) => NewScreen2()));
-          break;*/
-          case 2:
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => BookingHistoryScreen()));
-            break;
-          case 3:
-            Navigator.push(context,
-                MaterialPageRoute(builder: (context) => AccountScreen()));
-            break;
-        }
-      },
-    );
+    return BottomNavBarFb2(currentIndex: 0);
+  }
+
+  Future<Position?> _getCurrentLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return Future.error('Location services are disabled.');
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return Future.error('Location permissions are denied');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return Future.error('Location permissions are permanently denied');
+    }
+
+    try {
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+    } catch (e) {
+      print("Error getting location: $e");
+      return null;
+    }
+  }
+
+  Future<Map<String, String>?> _getCurrentLocationWithAddress() async {
+    try {
+      Position? position = await _getCurrentLocation();
+      if (position == null) {
+        throw Exception('Could not get location');
+      }
+
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        String address = '${place.locality}, ${place.administrativeArea}';
+        return {
+          'latitude': position.latitude.toString(),
+          'longitude': position.longitude.toString(),
+          'address': address,
+        };
+      }
+      return null;
+    } catch (e) {
+      print("Error getting location with address: $e");
+      return null;
+    }
+  }
+
+  Future<void> _launchTermsAndConditions(BuildContext context) async {
+    final Uri url =
+        Uri.parse('https://youtube.com'); // Replace with your actual URL
+    try {
+      if (!await launchUrl(
+        url,
+        mode: LaunchMode.externalApplication,
+      )) {
+        throw Exception('Could not launch Terms & Conditions');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open Terms & Conditions'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
   }
 }
 
@@ -477,11 +752,12 @@ class ServiceIcon extends StatelessWidget {
               children: [
                 Container(
                   decoration: BoxDecoration(
-                    color: Color(0xFF1E1E1E),
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(15),
                   ),
                   padding: EdgeInsets.all(12),
-                  child: Icon(icon, size: 40, color: Color(0xFF8A4FFF)),
+                  child: Icon(icon,
+                      size: 40, color: Theme.of(context).primaryColor),
                 ),
                 if (promo)
                   Positioned(
@@ -512,7 +788,7 @@ class ServiceIcon extends StatelessWidget {
             Text(
               label,
               style: GoogleFonts.roboto(
-                color: Colors.white70,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
                 fontSize: 12,
               ),
             ),

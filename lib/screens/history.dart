@@ -2,45 +2,66 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:majdoor/services/bottumnavbar.dart';
+import 'package:provider/provider.dart';
+import 'package:majdoor/services/booking_provider.dart';
+import 'package:majdoor/services/booking.dart';
+import 'package:majdoor/services/wallet_provider.dart'; // Import WalletProvider
+import 'package:majdoor/screens/dashboard.dart'; //Import Dashboard Screen
 
 class BookingHistoryScreen extends StatelessWidget {
   const BookingHistoryScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // Access the BookingProvider
+    final bookingProvider = Provider.of<BookingProvider>(context);
+    final bookings = bookingProvider.bookings;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
         title: Text(
           'Booking History',
           style: GoogleFonts.poppins(
-            color: Colors.white,
+            color: Theme.of(context).textTheme.titleLarge?.color,
             fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
-        ),
-      ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: 10, // Replace with actual booking history count
-        itemBuilder: (context, index) {
-          return _buildBookingCard(context);
-        },
-      ),
-      bottomNavigationBar: BottomNavBarFb2(),
-    );
+        ),),
+      body: bookings.isEmpty
+          ? Center(
+              child: Text(
+                'No bookings yet.',
+                style: GoogleFonts.poppins(
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
+                ),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: bookings.length,
+              itemBuilder: (context, index) {
+                return _buildBookingCard(context, bookings[index]);
+              },
+            ),
+    
+    
+      bottomNavigationBar: BottomNavBarFb2(currentIndex: 2),
+      );
   }
 
-  Widget _buildBookingCard(BuildContext context) {
+  Widget _buildBookingCard(BuildContext context, Booking booking) {
+    final bookingProvider = Provider.of<BookingProvider>(context, listen: false);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFF3D3D3D),
+          color: Theme.of(context).dividerColor,
           width: 1,
         ),
       ),
@@ -57,12 +78,12 @@ class BookingHistoryScreen extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const CircleAvatar(
+                        CircleAvatar(
                           radius: 24,
-                          backgroundColor: Color(0xFF7E57C2),
+                          backgroundColor: Theme.of(context).primaryColor,
                           child: Icon(
                             Icons.person,
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.onPrimary,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -70,17 +91,23 @@ class BookingHistoryScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Rajesh Kumar',
+                              booking.workerName,
                               style: GoogleFonts.poppins(
-                                color: Colors.white,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodyLarge
+                                    ?.color,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                             Text(
-                              'Carpenter',
+                              booking.workerType,
                               style: GoogleFonts.poppins(
-                                color: Colors.grey[400],
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.color,
                                 fontSize: 14,
                               ),
                             ),
@@ -98,7 +125,7 @@ class BookingHistoryScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        '₹400/day',
+                        '₹${booking.price.toStringAsFixed(0)}/day',
                         style: GoogleFonts.poppins(
                           color: const Color(0xFF7E57C2),
                           fontSize: 14,
@@ -121,7 +148,7 @@ class BookingHistoryScreen extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Last booked: ${DateFormat('dd MMM yyyy').format(DateTime.now())}',
+                          'Last booked: ${DateFormat('dd MMM yyyy').format(booking.bookingDate)}',
                           style: GoogleFonts.poppins(
                             color: Colors.grey,
                             fontSize: 14,
@@ -129,7 +156,7 @@ class BookingHistoryScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    Row(
+                    /*Row(
                       children: [
                         const Icon(
                           Icons.star,
@@ -145,7 +172,7 @@ class BookingHistoryScreen extends StatelessWidget {
                           ),
                         ),
                       ],
-                    ),
+                    ),*/
                   ],
                 ),
               ],
@@ -165,7 +192,9 @@ class BookingHistoryScreen extends StatelessWidget {
               children: [
                 Expanded(
                   child: TextButton.icon(
-                    onPressed: () {},
+                    onPressed: () {
+                      _rebookLabourer(context, booking);
+                    },
                     style: TextButton.styleFrom(
                       backgroundColor: const Color(0xFF7E57C2),
                       shape: RoundedRectangleBorder(
@@ -188,296 +217,54 @@ class BookingHistoryScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-/* import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-
-class Booking {
-  final String id;
-  final String workerName;
-  final String profession;
-  final double rate;
-  final DateTime date;
-  final double rating;
-
-  Booking({
-    required this.id,
-    required this.workerName,
-    required this.profession,
-    required this.rate,
-    required this.date,
-    required this.rating,
-  });
-
-  factory Booking.fromJson(Map<String, dynamic> json) {
-    return Booking(
-      id: json['id'],
-      workerName: json['workerName'],
-      profession: json['profession'],
-      rate: json['rate'].toDouble(),
-      date: DateTime.parse(json['date']),
-      rating: json['rating'].toDouble(),
-    );
-  }
-}
-
-class BookingHistoryScreen extends StatefulWidget {
-  const BookingHistoryScreen({Key? key}) : super(key: key);
-
-  @override
-  _BookingHistoryScreenState createState() => _BookingHistoryScreenState();
-}
-
-class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
-  List<Booking> _bookings = [];
-  bool _isLoading = true;
-  String _errorMessage = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchBookings();
-  }
-
-  Future<void> _fetchBookings() async {
-    try {
-      final response = await http.get(
-        Uri.parse('https://your-api-endpoint.com/bookings'),
-        headers: {'Authorization': 'Bearer YOUR_TOKEN'}, // Add if needed
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        setState(() {
-          _bookings = data.map((json) => Booking.fromJson(json)).toList();
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _errorMessage = 'Failed to load bookings: ${response.statusCode}';
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error fetching bookings: ${e.toString()}';
-        _isLoading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF121212),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
-        elevation: 0,
-        title: Text(
-          'Booking History',
-          style: GoogleFonts.poppins(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_errorMessage.isNotEmpty) {
-      return Center(
-        child: Text(
-          _errorMessage,
-          style: GoogleFonts.poppins(color: Colors.red),
-        ),
-      );
-    }
-
-    if (_bookings.isEmpty) {
-      return Center(
-        child: Text(
-          'No bookings found',
-          style: GoogleFonts.poppins(color: Colors.white),
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _fetchBookings,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _bookings.length,
-        itemBuilder: (context, index) {
-          return _buildBookingCard(_bookings[index]);
-        },
-      ),
-    );
-  }
-
-  Widget _buildBookingCard(Booking booking) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFF3D3D3D),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const CircleAvatar(
-                          radius: 24,
-                          backgroundColor: Color(0xFF7E57C2),
-                          child: Icon(
-                            Icons.person,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              booking.workerName,
-                              style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
+                const SizedBox(width: 8), // Add some space between buttons
+                Expanded(
+                  child: TextButton.icon(
+                    onPressed: () {
+                      // Show a confirmation dialog before removing
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Remove Booking'),
+                          content: const Text(
+                              'Are you sure you want to remove this booking?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancel'),
                             ),
-                            Text(
-                              booking.profession,
-                              style: GoogleFonts.poppins(
-                                color: Colors.grey[400],
-                                fontSize: 14,
-                              ),
+                            ElevatedButton(
+                              onPressed: () {
+                                // Remove the booking
+                                bookingProvider.removeBooking(booking.id);
+                                Navigator.pop(context); // Close the dialog
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Booking removed.'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              },
+                              child: const Text('Remove'),
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF7E57C2).withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '₹${booking.rate}/day',
-                        style: GoogleFonts.poppins(
-                          color: const Color(0xFF7E57C2),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.calendar_today,
-                          color: Colors.grey,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Last booked: ${DateFormat('dd MMM yyyy').format(booking.date)}',
-                          style: GoogleFonts.poppins(
-                            color: Colors.grey,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.star,
-                          color: Color(0xFFFFC107),
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          booking.rating.toString(),
-                          style: GoogleFonts.poppins(
-                            color: Colors.grey,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(
-                  color: Color(0xFF3D3D3D),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextButton.icon(
-                    onPressed: () {},
+                      );
+                    },
                     style: TextButton.styleFrom(
-                      backgroundColor: const Color(0xFF7E57C2),
+                      backgroundColor: Colors.redAccent,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     icon: const Icon(
-                      Icons.refresh,
+                      Icons.delete,
                       color: Colors.white,
                       size: 20,
                     ),
                     label: Text(
-                      'Book Again',
+                      'Remove',
                       style: GoogleFonts.poppins(
                         color: Colors.white,
                         fontSize: 14,
@@ -493,4 +280,78 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
       ),
     );
   }
-}*/
+
+  void _rebookLabourer(BuildContext context, Booking booking) {
+    final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+    final bookingProvider = Provider.of<BookingProvider>(context, listen: false);
+    final labourerPrice = booking.price; // Get the price from the booking
+
+    if (walletProvider.canAfford(labourerPrice)) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: Theme.of(context).cardColor,
+          title: Text(
+            'Confirm Rebooking',
+            style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color),
+          ),
+          content: Text(
+            'Do you want to rebook ${booking.workerName} for ₹$labourerPrice?',
+            style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final success = await walletProvider.deductBalance(labourerPrice);
+                if (success) {
+                  Navigator.pop(context);
+
+                  // Create a new Booking object
+                  final newBooking = Booking(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    workerName: booking.workerName,
+                    workerType: booking.workerType,
+                    price: labourerPrice,
+                    bookingDate: DateTime.now(),
+                    status: 'confirmed',
+                  );
+
+                  // Add the booking to the provider
+                  bookingProvider.addBooking(newBooking);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Rebooking confirmed! ₹$labourerPrice deducted from wallet'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                   Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Insufficient Balance!'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              child: Text('Confirm'),
+            ),
+          ],
+        ),
+      );
+    } else {
+       Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Insufficient balance. Please add funds to your wallet.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}
