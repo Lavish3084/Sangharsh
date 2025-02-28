@@ -1,8 +1,63 @@
 import 'package:flutter/material.dart';
 import 'package:majdoor/screens/dashboard.dart';
 import 'package:majdoor/screens/history.dart';
-import 'package:majdoor/screens/account.dart';
+import 'package:majdoor/screens/profiles/account.dart';
 import 'package:majdoor/screens/bookings.dart';
+import 'package:latlong2/latlong.dart';
+
+import 'package:firebase_auth/firebase_auth.dart';
+
+class IconBottomBar extends StatelessWidget {
+  final String text;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  const IconBottomBar({
+    Key? key,
+    required this.text,
+    required this.icon,
+    this.selected = false,
+    required this.onPressed,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 25,
+            color: selected
+                ? Theme.of(context).primaryColor
+                : Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.color
+                    ?.withOpacity(0.6),
+          ),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              height: 1,
+              color: selected
+                  ? Theme.of(context).primaryColor
+                  : Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.color
+                      ?.withOpacity(0.6),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class BottomNavBarFb2 extends StatelessWidget {
   final int currentIndex; // 0: Dashboard, 1: Bookings, 2: History, 3: Account
@@ -62,67 +117,19 @@ class BottomNavBarFb2 extends StatelessWidget {
               selected: currentIndex == 3,
               onPressed: () {
                 if (currentIndex != 3) {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => AccountScreen()),
-                  );
+                  User? user = FirebaseAuth.instance.currentUser;
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AccountScreen(// Replace with actual location data
+                        ),
+                      ),
+                    );
                 }
               },
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class IconBottomBar extends StatelessWidget {
-  final String text;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onPressed;
-
-  const IconBottomBar({
-    Key? key,
-    required this.text,
-    required this.icon,
-    this.selected = false,
-    required this.onPressed,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 25,
-            color: selected
-                ? Theme.of(context).primaryColor
-                : Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.color
-                    ?.withOpacity(0.6),
-          ),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 12,
-              height: 1,
-              color: selected
-                  ? Theme.of(context).primaryColor
-                  : Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.color
-                      ?.withOpacity(0.6),
-            ),
-          ),
-        ],
       ),
     );
   }

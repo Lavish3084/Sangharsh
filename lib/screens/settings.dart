@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:majdoor/services/theme_provider.dart';
+import 'package:majdoor/providers/theme_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class SettingsScreen extends StatelessWidget {

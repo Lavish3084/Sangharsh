@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:majdoor/screens/account.dart';
+import 'package:majdoor/screens/profiles/account.dart';
 import 'package:majdoor/screens/history.dart';
-import 'package:majdoor/screens/loginscreen.dart';
+import 'package:majdoor/screens/auth/loginscreen.dart';
 import 'package:majdoor/screens/services.dart';
 import 'package:majdoor/screens/wallet.dart';
 import 'package:majdoor/widgets/Uihelper.dart';
@@ -10,24 +10,18 @@ import 'package:majdoor/services/bottumnavbar.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:majdoor/screens/mapscreen.dart';
+import 'package:majdoor/screens/mapings/mapscreen.dart';
 import 'package:geocoding/geocoding.dart';
-import 'savedlocations.dart';
+import 'package:majdoor/screens/mapings/SavedLocations.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
-import 'package:majdoor/services/wallet_provider.dart';
+import 'package:majdoor/providers/wallet_provider.dart';
 import 'package:majdoor/services/booking.dart';
-import 'package:majdoor/services/booking_provider.dart';
+import 'package:majdoor/providers/booking_provider.dart';
+import 'package:majdoor/screens/profiles/labourprofile.dart';
+import 'package:majdoor/services/labourmodel.dart';
 
-class Labourer {
-  final String name;
-  final String location;
-  final double reviews;
-  final int Rs;
-  final String photo;
 
-  Labourer(this.name, this.location, this.reviews, this.Rs, this.photo);
-}
 
 class DashboardScreen extends StatelessWidget {
   final List<Labourer> labourers = [
@@ -390,20 +384,27 @@ class DashboardScreen extends StatelessWidget {
         ),
       ),
     );
-  }
+  }Widget _buildLabourersList(BuildContext context) {
+  final bookingProvider = Provider.of<BookingProvider>(context);
 
-  Widget _buildLabourersList(BuildContext context) {
-    final bookingProvider = Provider.of<BookingProvider>(context);
+  return ListView.builder(
+    shrinkWrap: true,
+    physics: NeverScrollableScrollPhysics(),
+    itemCount: labourers.length,
+    itemBuilder: (context, index) {
+      final labourer = labourers[index];
+      final isBooked = bookingProvider.isLabourerBooked(labourer.name);
 
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: NeverScrollableScrollPhysics(),
-      itemCount: labourers.length,
-      itemBuilder: (context, index) {
-        final labourer = labourers[index];
-        final isBooked = bookingProvider.isLabourerBooked(labourer.name);
-
-        return Padding(
+      return GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProfileScreen(labourer: labourer), // ✅ Pass labourer object
+            ),
+          );
+        },
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Container(
             decoration: BoxDecoration(
@@ -425,10 +426,16 @@ class DashboardScreen extends StatelessWidget {
                               color: Theme.of(context).primaryColor, width: 2),
                         ),
                         child: ClipOval(
-                          child: UiHelper.customimage(
-                            imagepath: labourers[index].photo,
-                          ),
-                        ),
+                          child: labourer.photo.isNotEmpty
+                              ? Image.asset(
+                                  labourer.photo, // ✅ Use local asset image
+                                  fit: BoxFit.cover,
+                                  width: 70, // Ensure width and height are set
+                                  height: 70,
+                                )
+                              : Icon(Icons.person, size: 50, color: Colors.grey),
+                        )
+
                       ),
                       SizedBox(width: 16),
                       Expanded(
@@ -503,15 +510,15 @@ class DashboardScreen extends StatelessWidget {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: isBooked
-                          ? null // Disable the button if the labourer is booked
+                          ? null
                           : () {
                               final walletProvider =
                                   Provider.of<WalletProvider>(context,
                                       listen: false);
                               final bookingProvider =
                                   Provider.of<BookingProvider>(context,
-                                      listen: false); // Get the BookingProvider
-                              final labourerPrice = labourers[index].Rs.toDouble();
+                                      listen: false);
+                              final labourerPrice = labourer.Rs.toDouble();
 
                               if (walletProvider.canAfford(labourerPrice)) {
                                 showDialog(
@@ -546,19 +553,17 @@ class DashboardScreen extends StatelessWidget {
                                           if (success) {
                                             Navigator.pop(context);
 
-                                            // Create a new Booking object
                                             final newBooking = Booking(
                                               id: DateTime.now()
                                                   .millisecondsSinceEpoch
-                                                  .toString(), // Generate a unique ID
-                                              workerName: labourers[index].name,
-                                              workerType: 'Labourer', // Replace with the actual service type
+                                                  .toString(),
+                                              workerName: labourer.name,
+                                              workerType: 'Labourer',
                                               price: labourerPrice,
                                               bookingDate: DateTime.now(),
-                                              status: 'confirmed', // Or 'upcoming', depending on your logic
+                                              status: 'confirmed',
                                             );
 
-                                            // Add the booking to the provider
                                             bookingProvider.addBooking(newBooking);
 
                                             ScaffoldMessenger.of(context)
@@ -616,7 +621,7 @@ class DashboardScreen extends StatelessWidget {
                             },
                       style: TextButton.styleFrom(
                         backgroundColor: isBooked
-                            ? Colors.grey // Change button color when disabled
+                            ? Colors.grey
                             : Theme.of(context).primaryColor,
                         padding: EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
@@ -624,7 +629,7 @@ class DashboardScreen extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        isBooked ? 'Already Booked' : 'Book Now', // Change button text
+                        isBooked ? 'Already Booked' : 'Book Now',
                         style: GoogleFonts.montserrat(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
@@ -637,10 +642,11 @@ class DashboardScreen extends StatelessWidget {
               ],
             ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildBottomNavigationBar(BuildContext context) {
     return BottomNavBarFb2(currentIndex: 0);

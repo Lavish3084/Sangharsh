@@ -3,9 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:majdoor/services/bottumnavbar.dart';
 import 'package:provider/provider.dart';
-import 'package:majdoor/services/booking_provider.dart';
+import 'package:majdoor/providers/booking_provider.dart';
 import 'package:majdoor/services/booking.dart';
-import 'package:majdoor/services/wallet_provider.dart'; // Import WalletProvider
+import 'package:majdoor/providers/wallet_provider.dart'; // Import WalletProvider
 import 'package:majdoor/screens/dashboard.dart'; //Import Dashboard Screen
 
 class BookingHistoryScreen extends StatelessWidget {

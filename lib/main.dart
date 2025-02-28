@@ -1,26 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:majdoor/screens/account.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'package:majdoor/screens/profiles/account.dart';
 import 'package:majdoor/screens/dashboard.dart';
 import 'package:majdoor/screens/history.dart';
-import 'package:majdoor/screens/otp.dart';
+import 'package:majdoor/screens/auth/otp.dart';
 import 'package:majdoor/screens/services.dart';
-import 'package:majdoor/screens/splashscreen.dart';
-import 'package:majdoor/screens/loginscreen.dart';
-import 'package:majdoor/screens/signupscreen.dart';
-import 'package:majdoor/screens/splashscreen2.dart';
+import 'package:majdoor/screens/splashes/splashscreen.dart';
+import 'package:majdoor/screens/auth/loginscreen.dart';
+import 'package:majdoor/screens/auth/signupscreen.dart';
+import 'package:majdoor/screens/profiles/userprofile.dart';
+import 'package:majdoor/screens/splashes/splashscreen2.dart';
 import 'package:majdoor/screens/settings.dart';
 import 'package:provider/provider.dart';
-import 'package:majdoor/services/theme_provider.dart';
+import 'package:majdoor/providers/theme_provider.dart';
 import 'package:majdoor/services/theme.dart';
 import 'package:majdoor/screens/wallet.dart';
-import 'package:majdoor/services/wallet_provider.dart';
+import 'package:majdoor/providers/wallet_provider.dart';
 import 'package:majdoor/screens/bookings.dart';
-import 'package:majdoor/services/booking_provider.dart';
-import 'package:majdoor/services/language_provider.dart';
+import 'package:majdoor/providers/booking_provider.dart';
+import 'package:majdoor/providers/language_provider.dart';
 import 'package:majdoor/screens/selectlanguage.dart';
+import 'package:majdoor/screens/feedbackscreen.dart';
+import 'package:majdoor/screens/profiles/labourprofile.dart';
 
-void main() {
+late Size mq;
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Await Firebase initialization before running the app
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Set immersive sticky mode after Firebase is initialized
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
   runApp(
     MultiProvider(
       providers: [
@@ -33,6 +50,7 @@ void main() {
     ),
   );
 }
+
 
 class MyApp extends StatelessWidget {
   @override
@@ -49,18 +67,17 @@ class MyApp extends StatelessWidget {
             '/otp': (context) => OTPScreen(),
             '/verification': (context) => VerificationSuccessfulScreen(),
             '/dashboard': (context) => DashboardScreen(),
-            '/account': (context) => AccountScreen(),
             '/services': (context) => ServicesScreen(),
             '/settings': (context) => SettingsScreen(),
             '/wallet': (context) => WalletScreen(),
             '/bookings': (context) => BookingsScreen(),
             '/selectLanguage': (context) => const SelectLanguageScreen(),
+            '/feedback': (context) => FeedbackScreen(),
           },
           title: 'Sangharsh',
           theme: AppThemes.lightTheme,
           darkTheme: AppThemes.darkTheme,
           themeMode: themeProvider.themeMode,
-          // Set locale from the provider
           locale: languageProvider.locale,
           supportedLocales: const [
             Locale('hi', 'IN'),

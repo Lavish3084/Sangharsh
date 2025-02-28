@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "522844484663",
+    "project_id": "sangharsh-6fb8e",
+    "storage_bucket": "sangharsh-6fb8e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:522844484663:android:2a8b3f1247fd91b7613bb2",
+        "android_client_info": {
+          "package_name": "com.example.majdoor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDHMCSqhMZiO3kjvNP-832mVD1r-ebE0EA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
