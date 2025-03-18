@@ -24,6 +24,7 @@ import 'package:majdoor/providers/booking_provider.dart';
 import 'package:majdoor/providers/language_provider.dart';
 import 'package:majdoor/screens/selectlanguage.dart';
 import 'package:majdoor/screens/feedbackscreen.dart';
+import 'screens/chat/chatscreen.dart';
 import 'package:majdoor/screens/profiles/labourprofile.dart';
 
 late Size mq;
@@ -51,7 +52,6 @@ void main() async {
   );
 }
 
-
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -64,7 +64,6 @@ class MyApp extends StatelessWidget {
             '/login': (context) => LoginPage(),
             '/signup': (context) => SignUpScreen(),
             '/splash': (context) => SplashScreen(),
-            '/otp': (context) => OTPScreen(),
             '/verification': (context) => VerificationSuccessfulScreen(),
             '/dashboard': (context) => DashboardScreen(),
             '/services': (context) => ServicesScreen(),
@@ -73,6 +72,11 @@ class MyApp extends StatelessWidget {
             '/bookings': (context) => BookingsScreen(),
             '/selectLanguage': (context) => const SelectLanguageScreen(),
             '/feedback': (context) => FeedbackScreen(),
+            '/testchat': (context) => const ChatScreen(
+                  laborerName: "Alex Johnson",
+                  laborerJob: "Moving Specialist",
+                  laborerImageUrl: "https://picsum.photos/100/100",
+                ),
           },
           title: 'Sangharsh',
           theme: AppThemes.lightTheme,

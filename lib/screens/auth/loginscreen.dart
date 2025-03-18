@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:majdoor/screens/auth/signupscreen.dart';
+import 'package:majdoor/services/auth_service.dart';
 import 'otp.dart';
 import '../dashboard.dart';
 import 'package:majdoor/helpers/dialogs.dart';
@@ -10,6 +11,7 @@ import 'package:majdoor/apis/apis.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majdoor/screens/profiles/account.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:sign_in_button/sign_in_button.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -18,6 +20,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _phoneController = TextEditingController();
+  bool _isLoading = false;
 
   _handleGoogleBtnClick() {
     _signInWithGoogle().then((user) {
@@ -52,14 +55,14 @@ class _LoginPageState extends State<LoginPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () {if (Navigator.canPop(context)) {
-    Navigator.pop(context);
-  }
+                  onPressed: () {
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    }
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => AccountScreen(
-                        ),
+                        builder: (context) => DashboardScreen(),
                       ),
                     );
                   },
@@ -118,6 +121,62 @@ class _LoginPageState extends State<LoginPage> {
     ));
   }
 
+  void _requestOTP() async {
+    final phoneNumber = _phoneController.text.trim();
+
+    if (phoneNumber.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please enter your phone number')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final authService = AuthService();
+      final result = await authService.requestOTP(phoneNumber);
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (result['success']) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'])),
+        );
+
+        // Navigate to OTP screen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OTPScreen(
+              phoneNumber: result['phoneNumber'] ?? phoneNumber,
+              sentOTP: result['otp'], // This will be null in production
+            ),
+          ),
+        );
+      } else {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'])),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      print('Error in _requestOTP: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('An error occurred. Please try again.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -127,14 +186,11 @@ class _LoginPageState extends State<LoginPage> {
           Expanded(
             flex: 3,
             child: Center(
-              child: Text(
-                "Tasla",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 60,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Roboto',
-                ),
+              child: Image.asset(
+                'assets/images/logo_white.png',
+                width: 550,
+                height: 300,
+                fit: BoxFit.contain,
               ),
             ),
           ),
@@ -155,64 +211,54 @@ class _LoginPageState extends State<LoginPage> {
                       keyboardType: TextInputType.phone,
                       decoration: InputDecoration(
                         labelText: "Phone Number",
-                        border: OutlineInputBorder(),
+                        hintText: "Enter your 10-digit phone number",
+                        prefixText: "+91 ",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.0),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.0),
+                          borderSide: BorderSide(color: Colors.grey),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.0),
+                          borderSide:
+                              BorderSide(color: Colors.blue, width: 2.0),
+                        ),
                       ),
                     ),
                     SizedBox(height: 10),
                     SizedBox(
                       height: 45,
                       width: 150,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                        ),
-                        child: Text(
-                          'Get OTP',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                          ),
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => OTPScreen()),
-                          );
-                        },
-                      ),
+                      child: _isLoading
+                          ? Center(child: CircularProgressIndicator())
+                          : ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.black,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                              ),
+                              child: Text(
+                                'Get OTP',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              onPressed: _requestOTP,
+                            ),
                     ),
                     SizedBox(height: 10),
                     SizedBox(
-                      height: 45,
-                      width: MediaQuery.of(context).size.width * 0.75,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.login, color: Colors.white),
-                            SizedBox(width: 10),
-                            Text(
-                              'Sign in with Google',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                              ),
-                            ),
-                          ],
-                        ),
-                        onPressed: _handleGoogleBtnClick,
-                      ),
-                    ),
+                        height: 50,
+                        width: MediaQuery.of(context).size.width * 0.75,
+                        child: SignInButton(
+                          Buttons.google,
+                          text: "Sign in with Google",
+                          onPressed: _handleGoogleBtnClick,
+                        )),
                     TextButton(
                       onPressed: () {
                         Navigator.push(
@@ -221,7 +267,10 @@ class _LoginPageState extends State<LoginPage> {
                               builder: (context) => SignUpScreen()),
                         );
                       },
-                      child: Text("Don't have an account? Sign up"),
+                      child: Text(
+                        "Don't have an account? Sign up",
+                        style: TextStyle(color: Colors.black),
+                      ),
                     ),
                   ],
                 ),

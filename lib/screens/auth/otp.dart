@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:majdoor/services/auth_service.dart';
+import 'package:majdoor/screens/dashboard.dart';
 
 class OTPScreen extends StatefulWidget {
-  const OTPScreen({Key? key}) : super(key: key);
+  final String phoneNumber;
+  final String? sentOTP; // For development purposes
+
+  const OTPScreen({
+    Key? key,
+    required this.phoneNumber,
+    this.sentOTP,
+  }) : super(key: key);
 
   @override
   _OTPScreenState createState() => _OTPScreenState();
@@ -13,10 +22,19 @@ class _OTPScreenState extends State<OTPScreen> {
   final List<TextEditingController> _controllers =
       List.generate(4, (_) => TextEditingController());
   String _errorMessage = '';
+  bool _isVerifying = false;
 
   @override
   void initState() {
     super.initState();
+
+    // Auto-fill OTP for development
+    if (widget.sentOTP != null && widget.sentOTP!.length == 4) {
+      for (int i = 0; i < 4; i++) {
+        _controllers[i].text = widget.sentOTP![i];
+      }
+    }
+
     for (int i = 0; i < _focusNodes.length; i++) {
       _focusNodes[i].addListener(() {
         if (!_focusNodes[i].hasFocus) {
@@ -26,19 +44,6 @@ class _OTPScreenState extends State<OTPScreen> {
     }
   }
 
-  /*final int _correctOTP = 1234; // Replace with your actual OTP logic
-  void _verifyOTP() {
-    int enteredOTP = 1234;
-
-    if (enteredOTP == _correctOTP) {
-      Navigator.pushReplacementNamed(context, '/Verification');
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Incorrect OTP. Please try again.')),
-      );
-    }
-  }
-  */
   void _validateOTP() {
     String otp = _controllers.map((controller) => controller.text).join();
     setState(() {
@@ -47,13 +52,33 @@ class _OTPScreenState extends State<OTPScreen> {
     });
   }
 
-  void _verifyOTP() {
+  void _verifyOTP() async {
     String otp = _controllers.map((controller) => controller.text).join();
     if (otp.length == 4) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('OTP Verified: $otp')),
-      );
-      Navigator.pushReplacementNamed(context, '/verification');
+      setState(() {
+        _isVerifying = true;
+        _errorMessage = '';
+      });
+
+      final authService = AuthService();
+      final result = await authService.verifyOTP(widget.phoneNumber, otp);
+
+      setState(() {
+        _isVerifying = false;
+      });
+
+      if (result['success']) {
+        // Navigate to dashboard
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => DashboardScreen()),
+          (route) => false,
+        );
+      } else {
+        setState(() {
+          _errorMessage = result['message'];
+        });
+      }
     } else {
       setState(() {
         _errorMessage = 'Please enter a complete 4-digit OTP';
@@ -76,7 +101,7 @@ class _OTPScreenState extends State<OTPScreen> {
         style: const TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.bold,
-          color: Colors.black, // Set the digit color to black
+          color: Colors.black,
         ),
         decoration: InputDecoration(
           counterText: '',
@@ -132,13 +157,16 @@ class _OTPScreenState extends State<OTPScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-              const Text(
-                'Enter the 4-digit code sent to your mobile',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 16,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Text(
+                  'Enter the 4-digit code sent to ${widget.phoneNumber}',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 30),
               Row(
@@ -152,23 +180,54 @@ class _OTPScreenState extends State<OTPScreen> {
                   style: const TextStyle(color: Colors.red, fontSize: 14),
                 ),
               const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _verifyOTP,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 43, vertical: 11),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                ),
-                child: const Text(
-                  'Verify',
-                  style: TextStyle(
-                    color: Color(0xFF4568DC),
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+              _isVerifying
+                  ? CircularProgressIndicator(color: Colors.white)
+                  : ElevatedButton(
+                      onPressed: _verifyOTP,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 43, vertical: 11),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                      child: const Text(
+                        'Verify',
+                        style: TextStyle(
+                          color: Color(0xFF4568DC),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+              const SizedBox(height: 20),
+              TextButton(
+                onPressed: () {
+                  // Resend OTP
+                  AuthService().requestOTP(widget.phoneNumber).then((result) {
+                    if (result['success']) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('OTP resent successfully')),
+                      );
+
+                      // Auto-fill for development
+                      if (result['otp'] != null) {
+                        final otp = result['otp'].toString();
+                        for (int i = 0; i < 4 && i < otp.length; i++) {
+                          _controllers[i].text = otp[i];
+                        }
+                      }
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(result['message'])),
+                      );
+                    }
+                  });
+                },
+                child: Text(
+                  'Resend OTP',
+                  style: TextStyle(color: Colors.white70),
                 ),
               ),
               const SizedBox(height: 40),
@@ -190,6 +249,7 @@ class _OTPScreenState extends State<OTPScreen> {
 
   @override
   void dispose() {
+    // Dispose controllers and focus nodes to avoid memory leaks
     for (var controller in _controllers) {
       controller.dispose();
     }

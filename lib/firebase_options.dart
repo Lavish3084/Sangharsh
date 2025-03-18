@@ -50,19 +50,19 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: '',
-    appId: '',
-    messagingSenderId: '',
-    projectId: '',
-    storageBucket: '',
+    apiKey: 'AIzaSyDHMCSqhMZiO3kjvNP-832mVD1r-ebE0EA',
+    appId: '1:522844484663:android:2a8b3f1247fd91b7613bb2',
+    messagingSenderId: '522844484663',
+    projectId: 'sangharsh-6fb8e',
+    storageBucket: 'sangharsh-6fb8e.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: '',
-    appId: '',
-    messagingSenderId: '',
-    projectId: '-',
-    storageBucket: '',
-    iosBundleId: '',
+    apiKey: 'AIzaSyBppE5O4YW6hs3H5b7IgO4dKgMRNEsC0Ek',
+    appId: '1:522844484663:ios:58f48fea2fe9b7f2613bb2',
+    messagingSenderId: '522844484663',
+    projectId: 'sangharsh-6fb8e',
+    storageBucket: 'sangharsh-6fb8e.firebasestorage.app',
+    iosBundleId: 'com.example.majdoor',
   );
 }

@@ -20,785 +20,959 @@ import 'package:majdoor/services/booking.dart';
 import 'package:majdoor/providers/booking_provider.dart';
 import 'package:majdoor/screens/profiles/labourprofile.dart';
 import 'package:majdoor/services/labourmodel.dart';
+import 'package:majdoor/services/worker.dart';
+import 'package:majdoor/services/worker_service.dart';
+import 'package:majdoor/screens/chat/chat_dashboard.dart';
+import 'package:majdoor/screens/bookings.dart';
+import 'package:majdoor/screens/settings.dart';
+import 'package:majdoor/screens/chat/chatscreen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+class ServiceProvider {
+  final String name;
+  final String location;
+  final double rating;
+  final int pricePerDay;
+  final String imageUrl;
+  final String category;
+  final bool isBookmarked;
+  final List<Color> gradient;
 
+  ServiceProvider({
+    required this.name,
+    required this.location,
+    required this.rating,
+    required this.pricePerDay,
+    required this.imageUrl,
+    required this.category,
+    this.isBookmarked = false,
+    required this.gradient,
+  });
+}
 
-class DashboardScreen extends StatelessWidget {
-  final List<Labourer> labourers = [
-    Labourer('Himanshu', 'Bihar, India', 4.5, 10000, 'himanshu.png'),
-    Labourer('Shaurya', 'Mumbai, India', 4.7, 600, 'shaurya.png'),
-    Labourer('Lavish', 'Hyderabad, India', 4.9, 700, 'lavish.png'),
-    Labourer('Prateek', 'Chennai, India', 4.6, 550, 'prateek.png'),
-    Labourer('Vatan', 'Kolkata, India', 4.8, 620, 'vatan.png'),
+class DashboardScreen extends StatefulWidget {
+  @override
+  _DashboardScreenState createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  final WorkerService _workerService = WorkerService();
+  List<Worker> _workers = [];
+  List<Worker> _featuredWorkers = [];
+  bool _isLoading = true;
+
+  // Categories with icons
+  final List<Map<String, dynamic>> _categories = [
+    {'name': 'Cleaning', 'icon': Icons.cleaning_services},
+    {'name': 'Electrician', 'icon': Icons.electrical_services},
+    {'name': 'Labourer', 'icon': Icons.construction},
+    {'name': 'Carpenter', 'icon': Icons.handyman},
+    {'name': 'Painting', 'icon': Icons.format_paint},
+    {'name': 'Plumbing', 'icon': Icons.plumbing},
+    {'name': 'Repair', 'icon': Icons.build},
   ];
 
-  DashboardScreen({Key? key}) : super(key: key);
+  @override
+  void initState() {
+    super.initState();
+    _clearStoredWorkersData();
+    _loadWorkers();
+  }
+
+  Future<void> _clearStoredWorkersData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('workers_data');
+  }
+
+  Future<void> _loadWorkers() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final workers = await _workerService.getWorkers();
+
+      // Sort by rating for featured workers
+      final featuredWorkers = List<Worker>.from(workers)
+        ..sort((a, b) => b.rating.compareTo(a.rating));
+
+      setState(() {
+        _workers = workers;
+        _featuredWorkers = featuredWorkers.take(5).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading workers: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).primaryColor;
+    final backgroundColor = isDark ? const Color(0xFF121212) : Colors.white;
+    final cardColor =
+        isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF7F9FC);
+    final textColor = isDark ? Colors.white : Colors.black;
+    final subtleTextColor = isDark ? Colors.grey[400] : Colors.grey[600];
+
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        backgroundColor: backgroundColor,
         elevation: 0,
         automaticallyImplyLeading: false,
         title: Text(
           'Sangharsh',
-          style: GoogleFonts.montserrat(
-            fontWeight: FontWeight.w700,
-            color: Theme.of(context).textTheme.titleLarge?.color,
+          style: GoogleFonts.poppins(
+            color: textColor,
             fontSize: 24,
+            fontWeight: FontWeight.bold,
           ),
         ),
         actions: [
           IconButton(
-            icon: Icon(
-              Icons.account_balance_wallet,
-              color: Theme.of(context).primaryColor,
-            ),
-            onPressed: () {
-              Navigator.pushNamed(context, '/wallet');
-            },
+            icon: Icon(Icons.notifications_outlined, color: textColor),
+            onPressed: () {},
           ),
           IconButton(
-            icon: Icon(
-              Icons.logout,
-              color: Theme.of(context).primaryColor,
-            ),
+            icon: Icon(Icons.favorite_outline_outlined, color: textColor),
             onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => LoginPage()),
-              );
-            },
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: TextField(
-                  style: GoogleFonts.roboto(
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Search for Locations',
-                    hintStyle: GoogleFonts.roboto(
-                      color: Theme.of(context).textTheme.bodyMedium?.color,
-                    ),
-                    prefixIcon: Icon(
-                      Icons.search,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        Icons.schedule,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                      onPressed: () {},
-                    ),
-                    border: InputBorder.none,
-                    contentPadding:
-                        EdgeInsets.symmetric(vertical: 15, horizontal: 15),
-                  ),
-                ),
-              ),
-            ),
-            _buildSectionTitle(context, 'Quick Access'),
-            _buildLocationTiles(context),
-            _buildSectionTitle(context, 'Services'),
-            _buildServiceIcons(context),
-            _buildPromoCard(context),
-            _buildSectionTitle(context, 'Top Rated Labourers'),
-            _buildLabourersList(context),
-          ],
-        ),
-      ),
-      bottomNavigationBar: _buildBottomNavigationBar(context),
-    );
-  }
-
-  Widget _buildSectionTitle(BuildContext context, String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: Text(
-        title,
-        style: GoogleFonts.montserrat(
-          color: Theme.of(context).textTheme.titleLarge?.color,
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLocationTiles(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        children: [
-          FutureBuilder<Map<String, String>?>(
-            future: _getCurrentLocationWithAddress(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return _buildLocationTile(
-                    context, 'Getting location...', 'Please wait');
-              }
-
-              if (snapshot.hasError) {
-                return _buildLocationTile(
-                    context, 'Location Error', 'Enable location services');
-              }
-
-              final locationData = snapshot.data;
-              if (locationData != null) {
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => MapScreen(
-                          initialPosition: LatLng(
-                            double.parse(locationData['latitude']!),
-                            double.parse(locationData['longitude']!),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                  child: _buildLocationTile(
-                    context,
-                    'Your Current Location',
-                    locationData['address']!,
-                  ),
-                );
-              }
-
-              return _buildLocationTile(
-                  context, 'Location Unavailable', 'Try again later');
-            },
-          ),
-          SizedBox(height: 10),
-          GestureDetector(
-            onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => SavedLocationsScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => SettingsScreen()),
               );
             },
-            child: _buildLocationTile(
-                context, 'Saved Locations', 'View your saved places'),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildLocationTile(
-      BuildContext context, String title, String subtitle) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: ListTile(
-        title: Text(
-          title,
-          style: GoogleFonts.roboto(
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: GoogleFonts.roboto(
-            color: Theme.of(context).textTheme.bodyMedium?.color,
-          ),
-        ),
-        trailing: Icon(
-          Icons.arrow_forward_ios,
-          color: Theme.of(context).primaryColor,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildServiceIcons(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ServiceIcon(
-                icon: Icons.handyman,
-                label: 'Carpenter',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        ServicesScreen(initialCategory: 'Carpenter'),
-                  ),
-                ),
-              ),
-              ServiceIcon(
-                icon: Icons.construction,
-                label: 'Labourer',
-                promo: true,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        ServicesScreen(initialCategory: 'Labourer'),
-                  ),
-                ),
-              ),
-              ServiceIcon(
-                icon: Icons.electrical_services,
-                label: 'Electrician',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        ServicesScreen(initialCategory: 'Electrician'),
-                  ),
-                ),
-              ),
-              ServiceIcon(
-                icon: Icons.plumbing,
-                label: 'Plumber',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        ServicesScreen(initialCategory: 'Plumbing'),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ServiceIcon(
-                icon: Icons.cleaning_services,
-                label: 'Cleaning',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        ServicesScreen(initialCategory: 'Cleaning'),
-                  ),
-                ),
-              ),
-              ServiceIcon(
-                icon: Icons.home_repair_service,
-                label: 'Repair',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        ServicesScreen(initialCategory: 'Repair'),
-                  ),
-                ),
-              ),
-              ServiceIcon(
-                icon: Icons.person,
-                label: 'Painting',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        ServicesScreen(initialCategory: 'Painting'),
-                  ),
-                ),
-              ),
-              ServiceIcon(
-                icon: Icons.more_horiz,
-                label: 'More',
-                onTap: () => Navigator.pushNamed(context, '/services'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPromoCard(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Theme.of(context).primaryColor,
-              Theme.of(context).primaryColor.withOpacity(0.8)
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(15),
-        ),
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Recommended',
-                  style: GoogleFonts.montserrat(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => _launchTermsAndConditions(context),
-                  child: Text(
-                    'Terms & Conditions Apply',
-                    style: GoogleFonts.roboto(
-                      color: Colors.white70,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Icon(Icons.discount, color: Colors.white, size: 40),
-          ],
-        ),
-      ),
-    );
-  }Widget _buildLabourersList(BuildContext context) {
-  final bookingProvider = Provider.of<BookingProvider>(context);
-
-  return ListView.builder(
-    shrinkWrap: true,
-    physics: NeverScrollableScrollPhysics(),
-    itemCount: labourers.length,
-    itemBuilder: (context, index) {
-      final labourer = labourers[index];
-      final isBooked = bookingProvider.isLabourerBooked(labourer.name);
-
-      return GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ProfileScreen(labourer: labourer), // ✅ Pass labourer object
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Column(
-              children: [
-                Padding(
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator(color: primaryColor))
+          : RefreshIndicator(
+              onRefresh: _loadWorkers,
+              child: SingleChildScrollView(
+                physics: AlwaysScrollableScrollPhysics(),
+                child: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Search Bar
                       Container(
-                        width: 70,
-                        height: 70,
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                              color: Theme.of(context).primaryColor, width: 2),
-                        ),
-                        child: ClipOval(
-                          child: labourer.photo.isNotEmpty
-                              ? Image.asset(
-                                  labourer.photo, // ✅ Use local asset image
-                                  fit: BoxFit.cover,
-                                  width: 70, // Ensure width and height are set
-                                  height: 70,
-                                )
-                              : Icon(Icons.person, size: 50, color: Colors.grey),
-                        )
-
-                      ),
-                      SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              labourer.name,
-                              style: GoogleFonts.montserrat(
-                                color: Theme.of(context)
-                                    .textTheme
-                                    .bodyLarge
-                                    ?.color,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Location: ${labourer.location}',
-                              style: GoogleFonts.roboto(
-                                color: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.color,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Icon(Icons.star, color: Colors.amber, size: 16),
-                                SizedBox(width: 4),
-                                Text(
-                                  '${labourer.reviews}',
-                                  style:
-                                      GoogleFonts.roboto(color: Colors.amber),
-                                ),
-                                SizedBox(width: 16),
-                                Icon(Icons.credit_card,
-                                    color: Theme.of(context)
-                                        .textTheme
-                                        .bodyLarge
-                                        ?.color,
-                                    size: 16),
-                                SizedBox(width: 4),
-                                Text(
-                                  '${labourer.Rs} Rupees/Day',
-                                  style: GoogleFonts.roboto(
-                                      color: Theme.of(context)
-                                          .textTheme
-                                          .bodyLarge
-                                          ?.color),
-                                ),
-                              ],
+                          color: cardColor,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
+                        child: TextField(
+                          readOnly: true,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => ServicesScreen()),
+                            );
+                          },
+                          style: GoogleFonts.poppins(color: textColor),
+                          decoration: InputDecoration(
+                            hintText: "Search for services...",
+                            hintStyle:
+                                GoogleFonts.poppins(color: subtleTextColor),
+                            prefixIcon: Icon(Icons.search, color: primaryColor),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 16),
+                          ),
+                        ),
+                      ),
+
+                      SizedBox(height: 16),
+
+                      // Location Options
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) => MapScreen()),
+                                );
+                              },
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal:
+                                      MediaQuery.of(context).size.width *
+                                          0.02, // Responsive padding
+                                ),
+                                decoration: BoxDecoration(
+                                  color: cardColor,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.my_location,
+                                      color: primaryColor,
+                                      size: 18, // Slightly smaller icon
+                                    ),
+                                    SizedBox(width: 4), // Reduced spacing
+                                    Flexible(
+                                      // Added Flexible
+                                      child: Text(
+                                        'Current Location',
+                                        style: GoogleFonts.poppins(
+                                          color: textColor,
+                                          fontSize: MediaQuery.of(context)
+                                                  .size
+                                                  .width *
+                                              0.033, // Responsive font size
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 8), // Reduced spacing between buttons
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          SavedLocationsScreen()),
+                                );
+                              },
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal:
+                                      MediaQuery.of(context).size.width *
+                                          0.02, // Responsive padding
+                                ),
+                                decoration: BoxDecoration(
+                                  color: cardColor,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.bookmark_outline,
+                                      color: primaryColor,
+                                      size: 18, // Slightly smaller icon
+                                    ),
+                                    SizedBox(width: 4), // Reduced spacing
+                                    Flexible(
+                                      // Added Flexible
+                                      child: Text(
+                                        'Saved Locations',
+                                        style: GoogleFonts.poppins(
+                                          color: textColor,
+                                          fontSize: MediaQuery.of(context)
+                                                  .size
+                                                  .width *
+                                              0.033, // Responsive font size
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      SizedBox(height: 24),
+
+                      // Categories
+                      Text(
+                        "Categories",
+                        style: GoogleFonts.poppins(
+                          color: textColor,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      Container(
+                        height: 100,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _categories.length,
+                          itemBuilder: (context, index) {
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ServicesScreen(
+                                      initialCategory: _categories[index]
+                                          ['name'],
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                width: 80,
+                                margin: EdgeInsets.only(right: 16),
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      width: 60,
+                                      height: 60,
+                                      decoration: BoxDecoration(
+                                        color: primaryColor.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Icon(
+                                        _categories[index]['icon'],
+                                        color: primaryColor,
+                                        size: 30,
+                                      ),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      _categories[index]['name'],
+                                      style: GoogleFonts.poppins(
+                                        color: textColor,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+
+                      SizedBox(height: 24),
+
+                      // Featured Workers
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Featured Workers",
+                            style: GoogleFonts.poppins(
+                              color: textColor,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => ServicesScreen()),
+                              );
+                            },
+                            child: Text(
+                              "See All",
+                              style: GoogleFonts.poppins(
+                                color: primaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 16),
+                      Container(
+                        height: 220,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _featuredWorkers.length,
+                          itemBuilder: (context, index) {
+                            final worker = _featuredWorkers[index];
+                            print("Worker image URL: ${worker.imageUrl}");
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ProfileScreen(
+                                      labourer: Labourer(
+                                        id: worker.id,
+                                        name: worker.name,
+                                        category: worker.category,
+                                        rating: worker.rating,
+                                        pricePerDay: worker.pricePerDay,
+                                        imageUrl: worker.imageUrl,
+                                        location: worker.location,
+                                        reviews: worker.rating,
+                                        Rs: worker.pricePerDay,
+                                        specialization:
+                                            worker.specialization ?? '',
+                                        experience: worker.experience ?? 0,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                width: 160,
+                                margin: EdgeInsets.only(right: 16),
+                                decoration: BoxDecoration(
+                                  color: cardColor,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Worker Image
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(12),
+                                      ),
+                                      child: Container(
+                                        width: double.infinity,
+                                        height: 120,
+                                        child: worker.imageUrl
+                                                .startsWith('assets/')
+                                            ? Image.asset(
+                                                worker.imageUrl,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error,
+                                                    stackTrace) {
+                                                  print(
+                                                      'Error loading image: ${worker.imageUrl}');
+                                                  return Container(
+                                                    decoration: BoxDecoration(
+                                                      gradient: LinearGradient(
+                                                        begin:
+                                                            Alignment.topLeft,
+                                                        end: Alignment
+                                                            .bottomRight,
+                                                        colors: [
+                                                          primaryColor
+                                                              .withOpacity(0.7),
+                                                          primaryColor
+                                                              .withOpacity(0.3),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    child: Center(
+                                                      child: Icon(
+                                                        Icons.person,
+                                                        size: 40,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                              )
+                                            : Container(
+                                                decoration: BoxDecoration(
+                                                  gradient: LinearGradient(
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                    colors: [
+                                                      primaryColor
+                                                          .withOpacity(0.7),
+                                                      primaryColor
+                                                          .withOpacity(0.3),
+                                                    ],
+                                                  ),
+                                                ),
+                                                child: Center(
+                                                  child: Icon(
+                                                    Icons.person,
+                                                    size: 40,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              ),
+                                      ),
+                                    ),
+                                    // Worker Info
+                                    Padding(
+                                      padding: const EdgeInsets.all(12.0),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            worker.name,
+                                            style: GoogleFonts.poppins(
+                                              color: textColor,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          SizedBox(height: 4),
+                                          Text(
+                                            worker.category,
+                                            style: GoogleFonts.poppins(
+                                              color: primaryColor,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          SizedBox(height: 4),
+                                          Text(
+                                            "₹${worker.pricePerDay}/day",
+                                            style: GoogleFonts.poppins(
+                                              color: subtleTextColor,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+
+                      SizedBox(height: 24),
+
+                      // Quick Actions
+                      Text(
+                        "Quick Actions",
+                        style: GoogleFonts.poppins(
+                          color: textColor,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildQuickAction(
+                            context,
+                            icon: Icons.calendar_today,
+                            label: "Bookings",
+                            color: Colors.blue,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => BookingsScreen()),
+                              );
+                            },
+                          ),
+                          _buildQuickAction(
+                            context,
+                            icon: Icons.wallet,
+                            label: "Wallet",
+                            color: Colors.green,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => WalletScreen()),
+                              );
+                            },
+                          ),
+                          _buildQuickAction(
+                            context,
+                            icon: Icons.chat_bubble_outline,
+                            label: "Chat",
+                            color: Colors.purple,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => ChatDashboard()),
+                              );
+                            },
+                          ),
+                          _buildQuickAction(
+                            context,
+                            icon: Icons.settings,
+                            label: "Settings",
+                            color: Colors.orange,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => SettingsScreen()),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+
+                      SizedBox(height: 24),
+
+                      // Popular Categories Section
+                      Text(
+                        "Popular Categories",
+                        style: GoogleFonts.poppins(
+                          color: textColor,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 16),
+
+                      // Category Tabs
+                      ListView.builder(
+                        physics: NeverScrollableScrollPhysics(),
+                        shrinkWrap: true,
+                        itemCount: _categories.length,
+                        itemBuilder: (context, categoryIndex) {
+                          // Filter workers by category
+                          final categoryWorkers = _workers
+                              .where((worker) =>
+                                  worker.category ==
+                                  _categories[categoryIndex]['name'])
+                              .take(3)
+                              .toList(); // Show up to 3 workers per category
+
+                          if (categoryWorkers.isEmpty) return SizedBox.shrink();
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12.0),
+                                child: Text(
+                                  _categories[categoryIndex]['name'],
+                                  style: GoogleFonts.poppins(
+                                    color: textColor,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                height: 120,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: categoryWorkers.length,
+                                  itemBuilder: (context, index) {
+                                    final worker = categoryWorkers[index];
+                                    return GestureDetector(
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => ProfileScreen(
+                                              labourer: Labourer(
+                                                id: worker.id,
+                                                name: worker.name,
+                                                category: worker.category,
+                                                rating: worker.rating,
+                                                pricePerDay: worker.pricePerDay,
+                                                imageUrl: worker.imageUrl,
+                                                location: worker.location,
+                                                reviews: worker.rating,
+                                                Rs: worker.pricePerDay,
+                                                specialization:
+                                                    worker.specialization ?? '',
+                                                experience:
+                                                    worker.experience ?? 0,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      child: Container(
+                                        width: 200,
+                                        margin: EdgeInsets.only(right: 12),
+                                        decoration: BoxDecoration(
+                                          color: cardColor,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black
+                                                  .withOpacity(0.05),
+                                              blurRadius: 10,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.horizontal(
+                                                left: Radius.circular(12),
+                                              ),
+                                              child: Container(
+                                                width: 80,
+                                                height: 120,
+                                                child: worker.imageUrl
+                                                        .startsWith('assets/')
+                                                    ? Image.asset(
+                                                        worker.imageUrl,
+                                                        fit: BoxFit.cover,
+                                                        errorBuilder: (context,
+                                                            error, stackTrace) {
+                                                          print(
+                                                              'Error loading image: ${worker.imageUrl}');
+                                                          return Container(
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              gradient:
+                                                                  LinearGradient(
+                                                                begin: Alignment
+                                                                    .topLeft,
+                                                                end: Alignment
+                                                                    .bottomRight,
+                                                                colors: [
+                                                                  primaryColor
+                                                                      .withOpacity(
+                                                                          0.7),
+                                                                  primaryColor
+                                                                      .withOpacity(
+                                                                          0.3),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                            child: Center(
+                                                              child: Icon(
+                                                                Icons.person,
+                                                                size: 30,
+                                                                color: Colors
+                                                                    .white,
+                                                              ),
+                                                            ),
+                                                          );
+                                                        },
+                                                      )
+                                                    : Container(
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          gradient:
+                                                              LinearGradient(
+                                                            begin: Alignment
+                                                                .topLeft,
+                                                            end: Alignment
+                                                                .bottomRight,
+                                                            colors: [
+                                                              primaryColor
+                                                                  .withOpacity(
+                                                                      0.7),
+                                                              primaryColor
+                                                                  .withOpacity(
+                                                                      0.3),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        child: Center(
+                                                          child: Icon(
+                                                            Icons.person,
+                                                            size: 30,
+                                                            color: Colors.white,
+                                                          ),
+                                                        ),
+                                                      ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.all(12.0),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Text(
+                                                      worker.name,
+                                                      style:
+                                                          GoogleFonts.poppins(
+                                                        color: textColor,
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                    SizedBox(height: 4),
+                                                    Row(
+                                                      children: [
+                                                        Icon(Icons.star,
+                                                            color: Colors.amber,
+                                                            size: 16),
+                                                        SizedBox(width: 4),
+                                                        Text(
+                                                          worker.rating
+                                                              .toString(),
+                                                          style: GoogleFonts
+                                                              .poppins(
+                                                            color:
+                                                                subtleTextColor,
+                                                            fontSize: 12,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    SizedBox(height: 4),
+                                                    Text(
+                                                      "₹${worker.pricePerDay}/day",
+                                                      style:
+                                                          GoogleFonts.poppins(
+                                                        color: primaryColor,
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ],
                   ),
                 ),
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(
-                        color: Colors.grey.withOpacity(0.2),
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  padding: EdgeInsets.all(12),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: isBooked
-                          ? null
-                          : () {
-                              final walletProvider =
-                                  Provider.of<WalletProvider>(context,
-                                      listen: false);
-                              final bookingProvider =
-                                  Provider.of<BookingProvider>(context,
-                                      listen: false);
-                              final labourerPrice = labourer.Rs.toDouble();
-
-                              if (walletProvider.canAfford(labourerPrice)) {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    backgroundColor: Theme.of(context).cardColor,
-                                    title: Text(
-                                      'Confirm Booking',
-                                      style: TextStyle(
-                                          color: Theme.of(context)
-                                              .textTheme
-                                              .titleLarge
-                                              ?.color),
-                                    ),
-                                    content: Text(
-                                      'Do you want to book this service for ₹$labourerPrice?',
-                                      style: TextStyle(
-                                          color: Theme.of(context)
-                                              .textTheme
-                                              .bodyLarge
-                                              ?.color),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: Text('Cancel'),
-                                      ),
-                                      ElevatedButton(
-                                        onPressed: () async {
-                                          final success = await walletProvider
-                                              .deductBalance(labourerPrice);
-                                          if (success) {
-                                            Navigator.pop(context);
-
-                                            final newBooking = Booking(
-                                              id: DateTime.now()
-                                                  .millisecondsSinceEpoch
-                                                  .toString(),
-                                              workerName: labourer.name,
-                                              workerType: 'Labourer',
-                                              price: labourerPrice,
-                                              bookingDate: DateTime.now(),
-                                              status: 'confirmed',
-                                            );
-
-                                            bookingProvider.addBooking(newBooking);
-
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                    'Booking confirmed! ₹$labourerPrice deducted from wallet'),
-                                                backgroundColor: Colors.green,
-                                              ),
-                                            );
-                                          }
-                                        },
-                                        child: Text('Confirm'),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              } else {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    backgroundColor: Theme.of(context).cardColor,
-                                    title: Text(
-                                      'Insufficient Balance',
-                                      style: TextStyle(
-                                          color: Theme.of(context)
-                                              .textTheme
-                                              .titleLarge
-                                              ?.color),
-                                    ),
-                                    content: Text(
-                                      'Please add money to your wallet to book this service.',
-                                      style: TextStyle(
-                                          color: Theme.of(context)
-                                              .textTheme
-                                              .bodyLarge
-                                              ?.color),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: Text('Cancel'),
-                                      ),
-                                      ElevatedButton(
-                                        onPressed: () {
-                                          Navigator.pop(context);
-                                          Navigator.pushNamed(context, '/wallet');
-                                        },
-                                        child: Text('Add Money'),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }
-                            },
-                      style: TextButton.styleFrom(
-                        backgroundColor: isBooked
-                            ? Colors.grey
-                            : Theme.of(context).primaryColor,
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        isBooked ? 'Already Booked' : 'Book Now',
-                        style: GoogleFonts.montserrat(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    },
-  );
-}
-
-  Widget _buildBottomNavigationBar(BuildContext context) {
-    return BottomNavBarFb2(currentIndex: 0);
-  }
-
-  Future<Position?> _getCurrentLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return Future.error('Location services are disabled.');
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        return Future.error('Location permissions are denied');
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      return Future.error('Location permissions are permanently denied');
-    }
-
-    try {
-      return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-    } catch (e) {
-      print("Error getting location: $e");
-      return null;
-    }
-  }
-
-  Future<Map<String, String>?> _getCurrentLocationWithAddress() async {
-    try {
-      Position? position = await _getCurrentLocation();
-      if (position == null) {
-        throw Exception('Could not get location');
-      }
-
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
-
-      if (placemarks.isNotEmpty) {
-        Placemark place = placemarks[0];
-        String address = '${place.locality}, ${place.administrativeArea}';
-        return {
-          'latitude': position.latitude.toString(),
-          'longitude': position.longitude.toString(),
-          'address': address,
-        };
-      }
-      return null;
-    } catch (e) {
-      print("Error getting location with address: $e");
-      return null;
-    }
-  }
-
-  Future<void> _launchTermsAndConditions(BuildContext context) async {
-    final Uri url =
-        Uri.parse('https://youtube.com'); // Replace with your actual URL
-    try {
-      if (!await launchUrl(
-        url,
-        mode: LaunchMode.externalApplication,
-      )) {
-        throw Exception('Could not launch Terms & Conditions');
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not open Terms & Conditions'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    }
-  }
-}
-
-class ServiceIcon extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool promo;
-  final VoidCallback onTap;
-
-  ServiceIcon({
-    required this.icon,
-    required this.label,
-    this.promo = false,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-        onTap: onTap,
-        child: Column(
-          children: [
-            Stack(
-              alignment: Alignment.topRight,
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  padding: EdgeInsets.all(12),
-                  child: Icon(icon,
-                      size: 40, color: Theme.of(context).primaryColor),
-                ),
-                if (promo)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.only(
-                          topRight: Radius.circular(15),
-                          bottomLeft: Radius.circular(8),
-                        ),
-                      ),
-                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      child: Text(
-                        'Recommended',
-                        style: GoogleFonts.roboto(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            SizedBox(height: 8),
-            Text(
-              label,
-              style: GoogleFonts.roboto(
-                color: Theme.of(context).textTheme.bodyMedium?.color,
-                fontSize: 12,
               ),
             ),
-          ],
-        ));
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: 0,
+        selectedItemColor: primaryColor,
+        unselectedItemColor: subtleTextColor,
+        backgroundColor: backgroundColor,
+        type: BottomNavigationBarType.fixed,
+        items: [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.search),
+            label: 'Search',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_bubble_outline),
+            label: 'Chat',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            label: 'Profile',
+          ),
+        ],
+        onTap: (index) {
+          if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => ServicesScreen()),
+            );
+          } else if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => ChatDashboard()),
+            );
+          } else if (index == 3) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => AccountScreen()),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildQuickAction(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 30,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

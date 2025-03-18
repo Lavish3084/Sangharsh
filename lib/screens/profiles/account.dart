@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:majdoor/screens/dashboard.dart';
 import 'userprofile.dart';
-
+import 'package:majdoor/helpers/auth_helper.dart';
 class AccountScreen extends StatefulWidget {
   @override
   _AccountScreenState createState() => _AccountScreenState();
@@ -127,6 +127,7 @@ class _AccountScreenState extends State<AccountScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
+    
                         ),
                       ),
                       child: Text(
@@ -150,7 +151,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   ),
                   const SizedBox(height: 16),
                   _buildNavigationItem(context, 'App feedback', '/feedback'),
-                  _buildNavigationItem(context, 'Help centre', '/help'),
+                  _buildNavigationItem(context, 'Help centre', '/home'),
                   _buildNavigationItem(context, 'Report an Issue', '/report'),
                   _buildNavigationItem(context, 'Business Support', '/business-support'),
                   const SizedBox(height: 32),
@@ -166,6 +167,16 @@ class _AccountScreenState extends State<AccountScreen> {
                   _buildNavigationItem(context, 'Notifications', '/notifications'),
                   _buildNavigationItem(context, 'Payment Methods', '/payment-methods'),
                   const SizedBox(height: 32),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      
+                      ElevatedButton(
+                        onPressed: () => AuthHelper.logout(context),
+                        child: Text("Logout"),
+                      ),
+                    ],
+                  )
                 ],
               ),
             ),

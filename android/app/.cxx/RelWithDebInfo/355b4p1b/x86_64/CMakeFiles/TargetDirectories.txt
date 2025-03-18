@@ -1,0 +1,2 @@
+D:/Flutter Files/majdoor/android/app/.cxx/RelWithDebInfo/355b4p1b/x86_64/CMakeFiles/edit_cache.dir
+D:/Flutter Files/majdoor/android/app/.cxx/RelWithDebInfo/355b4p1b/x86_64/CMakeFiles/rebuild_cache.dir
