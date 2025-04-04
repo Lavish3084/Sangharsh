@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:majdoor/services/saved_location.dart';
@@ -13,6 +12,7 @@ class SavedLocationsScreen extends StatefulWidget {
 
 class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
   List<SavedLocation> _savedLocations = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -21,98 +21,197 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
   }
 
   Future<void> _loadSavedLocations() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedLocationsJson = prefs.getStringList('saved_locations') ?? [];
+    setState(() => _isLoading = true);
 
-    setState(() {
-      _savedLocations = savedLocationsJson
-          .map((json) => SavedLocation.fromMap(jsonDecode(json)))
-          .toList();
-    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedLocations = prefs.getStringList('saved_locations') ?? [];
+
+      final locations = savedLocations.map((locationStr) {
+        final Map<String, dynamic> locationMap = jsonDecode(locationStr);
+        return SavedLocation.fromMap(locationMap);
+      }).toList();
+
+      setState(() {
+        _savedLocations = locations;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print("Error loading saved locations: $e");
+      setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _deleteLocation(String id) async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _savedLocations.removeWhere((location) => location.id == id);
-    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedLocations = prefs.getStringList('saved_locations') ?? [];
 
-    final updatedLocationsJson = _savedLocations
-        .map((location) => jsonEncode(location.toMap()))
-        .toList();
-    await prefs.setStringList('saved_locations', updatedLocationsJson);
+      final updatedLocations = savedLocations.where((locationStr) {
+        final Map<String, dynamic> locationMap = jsonDecode(locationStr);
+        return locationMap['id'] != id;
+      }).toList();
+
+      await prefs.setStringList('saved_locations', updatedLocations);
+
+      setState(() {
+        _savedLocations.removeWhere((location) => location.id == id);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Location deleted'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } catch (e) {
+      print("Error deleting location: $e");
+    }
+  }
+
+  void _viewOnMap(SavedLocation location) {
+    print(
+        "Opening location on map: ${location.name} at (${location.latitude}, ${location.longitude})");
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MapScreen(
+          savedLocation: location,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         title: Text(
           'Saved Locations',
           style: GoogleFonts.montserrat(
-            fontWeight: FontWeight.w600,
             color: Theme.of(context).textTheme.titleLarge?.color,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
-      body: _savedLocations.isEmpty
+      body: _isLoading
           ? Center(
-              child: Text(
-                'No saved locations yet',
-                style: GoogleFonts.roboto(
-                  color: Theme.of(context).textTheme.bodyMedium?.color,
-                  fontSize: 16,
-                ),
+              child: CircularProgressIndicator(
+                color: Theme.of(context).primaryColor,
               ),
             )
-          : ListView.builder(
-              padding: EdgeInsets.all(16),
-              itemCount: _savedLocations.length,
-              itemBuilder: (context, index) {
-                final location = _savedLocations[index];
-                return Card(
-                  color: Theme.of(context).cardColor,
-                  margin: EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    onTap: () {
-                      final position =
-                          LatLng(location.latitude, location.longitude);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => MapScreen(
-                            initialPosition: position,
+          : _savedLocations.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.location_off,
+                        size: 64,
+                        color: Theme.of(context).disabledColor,
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'No saved locations',
+                        style: GoogleFonts.montserrat(
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                          fontSize: 18,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Your saved locations will appear here',
+                        style: GoogleFonts.montserrat(
+                          color: Theme.of(context).textTheme.bodyMedium?.color,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _savedLocations.length,
+                  padding: EdgeInsets.all(16),
+                  itemBuilder: (context, index) {
+                    final location = _savedLocations[index];
+                    return Card(
+                      elevation: 2,
+                      margin: EdgeInsets.only(bottom: 16),
+                      color: Theme.of(context).cardColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: InkWell(
+                        onTap: () => _viewOnMap(location),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .primaryColor
+                                      .withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  Icons.place,
+                                  color: Theme.of(context).primaryColor,
+                                ),
+                              ),
+                              SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      location.name,
+                                      style: GoogleFonts.montserrat(
+                                        color: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.color,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      location.address,
+                                      style: GoogleFonts.montserrat(
+                                        color: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.color,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red,
+                                ),
+                                onPressed: () => _deleteLocation(location.id),
+                              ),
+                            ],
                           ),
                         ),
-                      );
-                    },
-                    title: Text(
-                      location.name,
-                      style: GoogleFonts.roboto(
-                        color: Theme.of(context).textTheme.bodyLarge?.color,
-                        fontWeight: FontWeight.w500,
                       ),
-                    ),
-                    subtitle: Text(
-                      location.address,
-                      style: GoogleFonts.roboto(
-                        color: Theme.of(context).textTheme.bodyMedium?.color,
-                      ),
-                    ),
-                    trailing: IconButton(
-                      icon: Icon(
-                        Icons.delete,
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                      onPressed: () => _deleteLocation(location.id),
-                    ),
-                  ),
-                );
-              },
-            ),
+                    );
+                  },
+                ),
     );
   }
 }

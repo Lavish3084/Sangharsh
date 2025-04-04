@@ -11,6 +11,7 @@ class Worker {
   final String? specialization;
   final int? experience;
   final bool isBookmarked;
+  bool isFavourite;
 
   // Chat-related fields
   final String? lastMessage;
@@ -33,6 +34,7 @@ class Worker {
     this.lastMessageTime,
     this.unreadCount = 0,
     this.isOnline = false,
+    this.isFavourite = false,
   });
 
   // Create a copy of this Worker with some fields updated
@@ -51,6 +53,7 @@ class Worker {
     String? lastMessageTime,
     int? unreadCount,
     bool? isOnline,
+    bool? isFavourite,
   }) {
     return Worker(
       id: id ?? this.id,
@@ -67,27 +70,34 @@ class Worker {
       lastMessageTime: lastMessageTime ?? this.lastMessageTime,
       unreadCount: unreadCount ?? this.unreadCount,
       isOnline: isOnline ?? this.isOnline,
+      isFavourite: isFavourite ?? this.isFavourite,
     );
   }
 
-  // Factory constructor to create a Worker from a Map (e.g., from JSON)
-  factory Worker.fromMap(Map<String, dynamic> map) {
+  // Factory constructor to create a Worker from a JSON object
+  factory Worker.fromJson(Map<String, dynamic> json) {
     return Worker(
-      id: map['id'] ?? '',
-      name: map['name'] ?? '',
-      location: map['location'] ?? '',
-      rating: (map['rating'] ?? 0.0).toDouble(),
-      pricePerDay: map['pricePerDay'] ?? 0,
-      imageUrl: map['imageUrl'] ?? '',
-      category: map['category'] ?? '',
-      specialization: map['specialization'],
-      experience: map['experience'],
-      isBookmarked: map['isBookmarked'] ?? false,
-      lastMessage: map['lastMessage'],
-      lastMessageTime: map['lastMessageTime'],
-      unreadCount: map['unreadCount'] ?? 0,
-      isOnline: map['isOnline'] ?? false,
+      id: json['_id'] ?? '', // Ensure this matches your API's ID field
+      name: json['name'] ?? '',
+      location: json['location'] ?? '',
+      rating: (json['rating'] ?? 0.0).toDouble(),
+      pricePerDay: json['pricePerDay'] ?? 0,
+      imageUrl: json['imageUrl'] ?? '',
+      category: json['category'] ?? '',
+      specialization: json['specialization'],
+      experience: json['experience'],
+      isBookmarked: json['isBookmarked'] ?? false,
+      lastMessage: json['lastMessage'],
+      lastMessageTime: json['lastMessageTime'],
+      unreadCount: json['unreadCount'] ?? 0,
+      isOnline: json['isOnline'] ?? false,
+      isFavourite: json['isFavourite'] ?? false,
     );
+  }
+
+  // Alias for fromJson to handle Map data
+  factory Worker.fromMap(Map<String, dynamic> map) {
+    return Worker.fromJson(map);
   }
 
   // Convert Worker to a Map (e.g., for JSON)
@@ -107,6 +117,7 @@ class Worker {
       'lastMessageTime': lastMessageTime,
       'unreadCount': unreadCount,
       'isOnline': isOnline,
+      'isFavourite': isFavourite,
     };
   }
 
@@ -126,5 +137,20 @@ class Worker {
       Rs: pricePerDay,
       isBookmarked: isBookmarked,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'category': category,
+      'rating': rating,
+      'pricePerDay': pricePerDay,
+      'imageUrl': imageUrl,
+      'location': location,
+      'specialization': specialization,
+      'experience': experience,
+      'isFavourite': isFavourite,
+    };
   }
 }

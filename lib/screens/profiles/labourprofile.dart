@@ -3,12 +3,46 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:majdoor/services/labourmodel.dart';
 import 'package:majdoor/screens/chat/chatscreen.dart';
 import 'package:flutter/services.dart';
-import 'package:majdoor/screens/chat/chatscreen.dart'; // Import the file containing ChatScreen
+import 'package:provider/provider.dart';
+import 'package:majdoor/providers/booking_provider.dart';
+import 'package:majdoor/services/booking.dart';
+import 'package:majdoor/screens/bookings.dart';
+import 'package:majdoor/services/worker_service.dart';
+import 'package:majdoor/providers/wallet_provider.dart';
+import 'package:majdoor/screens/wallet.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   final Labourer labourer;
 
   const ProfileScreen({Key? key, required this.labourer}) : super(key: key);
+
+  @override
+  _ProfileScreenState createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _isFavourite = false;
+  final WorkerService _workerService = WorkerService();
+
+  @override
+  void initState() {
+    super.initState();
+    _checkFavoriteStatus();
+  }
+
+  Future<void> _checkFavoriteStatus() async {
+    final status = await _workerService.isFavourite(widget.labourer.id);
+    setState(() {
+      _isFavourite = status;
+    });
+  }
+
+  Future<void> _toggleFavourite() async {
+    await _workerService.toggleFavourite(widget.labourer.id);
+    setState(() {
+      _isFavourite = !_isFavourite;
+    });
+  }
 
   void _startCall(BuildContext context) {
     // Show calling dialog with animation
@@ -25,33 +59,19 @@ class ProfileScreen extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 50,
-                child: labourer.imageUrl.startsWith('assets/')
-                    ? Image.asset(
-                        labourer.imageUrl,
+                child: widget.labourer.imageUrl.isNotEmpty
+                    ? Image.network(
+                        widget.labourer.imageUrl,
                         fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(Icons.error, size: 50);
+                        },
                       )
-                    : Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Theme.of(context).primaryColor.withOpacity(0.7),
-                              Theme.of(context).primaryColor.withOpacity(0.3),
-                            ],
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.person,
-                          size: 40,
-                          color: Colors.white,
-                        ),
-                      ),
+                    : Icon(Icons.person, size: 50),
               ),
               SizedBox(height: 16),
               Text(
-                'Calling ${labourer.name}...',
+                'Calling ${widget.labourer.name}...',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -125,13 +145,19 @@ class ProfileScreen extends StatelessWidget {
         children: [
           // Background Image with specific height
           Container(
-            height: MediaQuery.of(context).size.height *
-               0.75, // Adjust the height ratio as needed
-            child: labourer.imageUrl.startsWith('assets/')
-                ? Image.asset(
-                    labourer.imageUrl,
-                    fit: BoxFit
-                        .cover, // Adjust the fit as needed (cover, contain, etc.)
+            height: MediaQuery.of(context).size.height * 0.75,
+            child: widget.labourer.imageUrl.isNotEmpty
+                ? Image.network(
+                    widget.labourer.imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: Colors.grey[300],
+                        child: Center(
+                          child: Icon(Icons.error, size: 100),
+                        ),
+                      );
+                    },
                   )
                 : Container(
                     decoration: BoxDecoration(
@@ -153,15 +179,32 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
           ),
-          // Back Button
+          // Back Button and Favorite Button
           Positioned(
-            top: 40, // Adjust as needed for padding from the top
-            left: 16, // Adjust as needed for padding from the left
+            top: 40,
+            left: 16,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                ),
+              ],
+            ),
+          ),
+          // Add favorite button to top right
+          Positioned(
+            top: 40,
+            right: 16,
             child: IconButton(
-              icon: Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () {
-                Navigator.pop(context);
-              },
+              icon: Icon(
+                _isFavourite ? Icons.favorite : Icons.favorite_border,
+                color: _isFavourite ? Colors.red : Colors.white,
+                size: 28,
+              ),
+              onPressed: _toggleFavourite,
             ),
           ),
           // Scrollable Details
@@ -191,7 +234,7 @@ class ProfileScreen extends StatelessWidget {
                       children: [
                         Center(
                           child: Text(
-                            labourer.name,
+                            widget.labourer.name,
                             style: theme.textTheme.titleLarge?.copyWith(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -210,7 +253,7 @@ class ProfileScreen extends StatelessWidget {
                               ),
                               SizedBox(width: 4),
                               Text(
-                                labourer.location,
+                                widget.labourer.location,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   fontSize: 16,
                                   color: theme.textTheme.bodyMedium?.color
@@ -246,13 +289,14 @@ class ProfileScreen extends StatelessWidget {
                         ),
                         SizedBox(height: 30),
                         _buildInfoCard(context,
-                            title: 'Location', value: labourer.location),
+                            title: 'Location', value: widget.labourer.location),
                         _buildInfoCard(context,
-                            title: 'Reviews', value: '${labourer.rating} ★'),
+                            title: 'Reviews',
+                            value: '${widget.labourer.rating} ★'),
                         _buildInfoCard(context,
-                            title: 'Rate', value: '₹${labourer.Rs}/day'),
+                            title: 'Rate', value: '₹${widget.labourer.Rs}/day'),
                         SizedBox(height: 20),
-                        _buildExperienceCard(context, labourer),
+                        _buildExperienceCard(context, widget.labourer),
                         SizedBox(height: 24),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -274,10 +318,11 @@ class ProfileScreen extends StatelessWidget {
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => ChatScreen(
-                                      laborerName: labourer.name,
-                                      laborerJob: labourer.specialization,
-                                      laborerImageUrl: labourer.imageUrl,
-                                      laborerRating: labourer.rating,
+                                      laborerName: widget.labourer.name,
+                                      laborerJob: widget.labourer.category,
+                                      laborerImageUrl: widget.labourer.imageUrl,
+                                      pricePerDay: widget.labourer.Rs,
+                                      laborerRating: widget.labourer.rating,
                                     ),
                                   ),
                                 );
@@ -289,13 +334,7 @@ class ProfileScreen extends StatelessWidget {
                               label: 'Book',
                               color: Colors.blue,
                               onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content:
-                                        Text('Booking feature coming soon!'),
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
+                                _processBooking();
                               },
                             ),
                           ],
@@ -476,5 +515,59 @@ class ProfileScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _processBooking() async {
+    final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+    final bookingPrice = widget.labourer.Rs.toDouble();
+
+    // Check balance first
+    if (!walletProvider.hasSufficientBalance(bookingPrice)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text('Insufficient balance. Please add money to your wallet.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      // Navigate to wallet screen to add money
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => WalletScreen()),
+      );
+      return;
+    }
+
+    // If balance is sufficient, proceed with booking
+    final success = await walletProvider.deductBalance(bookingPrice);
+
+    if (success) {
+      // Create booking
+      final bookingProvider =
+          Provider.of<BookingProvider>(context, listen: false);
+      await bookingProvider.createBooking(
+        workerId: widget.labourer.id,
+        workerName: widget.labourer.name,
+        price: widget.labourer.Rs,
+        // Add other booking details here
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Booking successful!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Navigate to bookings screen or other appropriate screen
+    } else {
+      // This should not happen if we checked balance first, but just in case
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Booking failed. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

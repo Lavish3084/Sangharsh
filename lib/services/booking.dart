@@ -2,20 +2,20 @@ class Booking {
   final String id;
   final String workerName;
   final String workerType;
-  final double price;
   final DateTime bookingDate;
+  final double price;
   final String status; // 'pending', 'confirmed', 'completed', 'cancelled'
 
   Booking({
     required this.id,
     required this.workerName,
     required this.workerType,
-    required this.price,
     required this.bookingDate,
+    required this.price,
     required this.status,
   });
 
-   Booking copyWith({
+  Booking copyWith({
     String? id,
     String? workerName,
     String? workerType,
@@ -32,5 +32,4 @@ class Booking {
       status: status ?? this.status,
     );
   }
-
 }

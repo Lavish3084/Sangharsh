@@ -146,7 +146,7 @@ class BookingsScreen extends StatelessWidget {
                 );
               },
             ),
-            bottomNavigationBar: BottomNavBarFb2(currentIndex: 1),
+         //   bottomNavigationBar: BottomNavBarFb2(currentIndex: 1),
     );
   }
 }

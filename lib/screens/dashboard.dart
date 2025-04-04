@@ -9,6 +9,7 @@ import 'package:majdoor/widgets/Uihelper.dart';
 import 'package:majdoor/services/bottumnavbar.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'favourite.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:majdoor/screens/mapings/mapscreen.dart';
 import 'package:geocoding/geocoding.dart';
@@ -27,6 +28,9 @@ import 'package:majdoor/screens/bookings.dart';
 import 'package:majdoor/screens/settings.dart';
 import 'package:majdoor/screens/chat/chatscreen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'notification.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ServiceProvider {
   final String name;
@@ -50,6 +54,44 @@ class ServiceProvider {
   });
 }
 
+class Worker {
+  final String id;
+  final String name;
+  final String category;
+  final double rating;
+  final int pricePerDay;
+  final String imageUrl;
+  final String location;
+  final String? specialization;
+  final int? experience;
+
+  Worker({
+    required this.id,
+    required this.name,
+    required this.category,
+    required this.rating,
+    required this.pricePerDay,
+    required this.imageUrl,
+    required this.location,
+    this.specialization,
+    this.experience,
+  });
+
+  factory Worker.fromJson(Map<String, dynamic> json) {
+    return Worker(
+      id: json['_id'],
+      name: json['name'],
+      category: json['category'],
+      rating: json['rating'].toDouble(),
+      pricePerDay: json['pricePerDay'],
+      imageUrl: json['imageUrl'],
+      location: json['location'],
+      specialization: json['specialization'],
+      experience: json['experience'],
+    );
+  }
+}
+
 class DashboardScreen extends StatefulWidget {
   @override
   _DashboardScreenState createState() => _DashboardScreenState();
@@ -60,6 +102,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Worker> _workers = [];
   List<Worker> _featuredWorkers = [];
   bool _isLoading = true;
+  List<String> _popularCategories = [];
 
   // Categories with icons
   final List<Map<String, dynamic>> _categories = [
@@ -77,6 +120,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _clearStoredWorkersData();
     _loadWorkers();
+    _loadPopularCategories();
   }
 
   Future<void> _clearStoredWorkersData() async {
@@ -90,22 +134,66 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     try {
-      final workers = await _workerService.getWorkers();
+      final response = await http.get(Uri.parse(
+          'https://8402024d-94f3-49d9-a56d-2dc6043a9a34-00-2mher60iizzyr.pike.replit.dev/api/labors'));
 
-      // Sort by rating for featured workers
-      final featuredWorkers = List<Worker>.from(workers)
-        ..sort((a, b) => b.rating.compareTo(a.rating));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        final workers = data.map((item) => Worker.fromJson(item)).toList();
 
-      setState(() {
-        _workers = workers;
-        _featuredWorkers = featuredWorkers.take(5).toList();
-        _isLoading = false;
-      });
+        // Sort by rating for featured workers
+        final featuredWorkers = List<Worker>.from(workers)
+          ..sort((a, b) => b.rating.compareTo(a.rating));
+
+        setState(() {
+          _workers = workers;
+          _featuredWorkers = featuredWorkers.take(5).toList();
+          _isLoading = false;
+        });
+      } else {
+        print('Failed to load workers: ${response.body}');
+        setState(() {
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       print('Error loading workers: $e');
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadPopularCategories() async {
+    setState(() => _isLoading = true);
+    try {
+      final response = await http.get(Uri.parse(
+          'https://8402024d-94f3-49d9-a56d-2dc6043a9a34-00-2mher60iizzyr.pike.replit.dev/api/labors'));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        final workers = data.map((item) => Worker.fromJson(item)).toList();
+        // Group workers by category
+        final Map<String, List<Worker>> workersByCategory = {};
+        for (var worker in workers) {
+          if (!workersByCategory.containsKey(worker.category)) {
+            workersByCategory[worker.category] = [];
+          }
+          workersByCategory[worker.category]!.add(worker);
+        }
+
+        setState(() {
+          _workers = workers;
+          _popularCategories = workersByCategory.keys.toList();
+          _isLoading = false;
+        });
+      } else {
+        print('Failed to load workers: ${response.body}');
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      print('Error loading workers: $e');
+      setState(() => _isLoading = false);
     }
   }
 
@@ -136,14 +224,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         actions: [
           IconButton(
             icon: Icon(Icons.notifications_outlined, color: textColor),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: Icon(Icons.favorite_outline_outlined, color: textColor),
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => SettingsScreen()),
+                MaterialPageRoute(
+                    builder: (context) => const NotificationPage()),
+              );
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.wallet_outlined, color: textColor),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => WalletScreen()),
               );
             },
           ),
@@ -427,7 +521,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           itemCount: _featuredWorkers.length,
                           itemBuilder: (context, index) {
                             final worker = _featuredWorkers[index];
-                            print("Worker image URL: ${worker.imageUrl}");
                             return GestureDetector(
                               onTap: () {
                                 Navigator.push(
@@ -477,15 +570,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       child: Container(
                                         width: double.infinity,
                                         height: 120,
-                                        child: worker.imageUrl
-                                                .startsWith('assets/')
-                                            ? Image.asset(
+                                        child: worker.imageUrl.isNotEmpty
+                                            ? Image.network(
                                                 worker.imageUrl,
                                                 fit: BoxFit.cover,
                                                 errorBuilder: (context, error,
                                                     stackTrace) {
-                                                  print(
-                                                      'Error loading image: ${worker.imageUrl}');
                                                   return Container(
                                                     decoration: BoxDecoration(
                                                       gradient: LinearGradient(
@@ -666,15 +756,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ListView.builder(
                         physics: NeverScrollableScrollPhysics(),
                         shrinkWrap: true,
-                        itemCount: _categories.length,
-                        itemBuilder: (context, categoryIndex) {
-                          // Filter workers by category
+                        itemCount: _popularCategories.length,
+                        itemBuilder: (context, index) {
+                          final category = _popularCategories[index];
                           final categoryWorkers = _workers
-                              .where((worker) =>
-                                  worker.category ==
-                                  _categories[categoryIndex]['name'])
-                              .take(3)
-                              .toList(); // Show up to 3 workers per category
+                              .where((w) => w.category == category)
+                              .toList();
 
                           if (categoryWorkers.isEmpty) return SizedBox.shrink();
 
@@ -684,13 +771,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Padding(
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 12.0),
-                                child: Text(
-                                  _categories[categoryIndex]['name'],
-                                  style: GoogleFonts.poppins(
-                                    color: textColor,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      category,
+                                      style: GoogleFonts.poppins(
+                                        color: textColor,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                ServicesScreen(
+                                              initialCategory: category,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      child: Text(
+                                        "See All",
+                                        style: GoogleFonts.poppins(
+                                          color: primaryColor,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                               Container(
@@ -698,8 +811,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 child: ListView.builder(
                                   scrollDirection: Axis.horizontal,
                                   itemCount: categoryWorkers.length,
-                                  itemBuilder: (context, index) {
-                                    final worker = categoryWorkers[index];
+                                  itemBuilder: (context, workerIndex) {
+                                    final worker = categoryWorkers[workerIndex];
                                     return GestureDetector(
                                       onTap: () {
                                         Navigator.push(
@@ -751,15 +864,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                               child: Container(
                                                 width: 80,
                                                 height: 120,
-                                                child: worker.imageUrl
-                                                        .startsWith('assets/')
-                                                    ? Image.asset(
+                                                child: worker
+                                                        .imageUrl.isNotEmpty
+                                                    ? Image.network(
                                                         worker.imageUrl,
                                                         fit: BoxFit.cover,
                                                         errorBuilder: (context,
                                                             error, stackTrace) {
-                                                          print(
-                                                              'Error loading image: ${worker.imageUrl}');
                                                           return Container(
                                                             decoration:
                                                                 BoxDecoration(
@@ -843,33 +954,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                           TextOverflow.ellipsis,
                                                     ),
                                                     SizedBox(height: 4),
-                                                    Row(
-                                                      children: [
-                                                        Icon(Icons.star,
-                                                            color: Colors.amber,
-                                                            size: 16),
-                                                        SizedBox(width: 4),
-                                                        Text(
-                                                          worker.rating
-                                                              .toString(),
-                                                          style: GoogleFonts
-                                                              .poppins(
-                                                            color:
-                                                                subtleTextColor,
-                                                            fontSize: 12,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    SizedBox(height: 4),
                                                     Text(
-                                                      "₹${worker.pricePerDay}/day",
+                                                      worker.category,
                                                       style:
                                                           GoogleFonts.poppins(
                                                         color: primaryColor,
                                                         fontSize: 12,
                                                         fontWeight:
                                                             FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                    SizedBox(height: 4),
+                                                    Text(
+                                                      "₹${worker.pricePerDay}/day",
+                                                      style:
+                                                          GoogleFonts.poppins(
+                                                        color: subtleTextColor,
+                                                        fontSize: 12,
                                                       ),
                                                     ),
                                                   ],
@@ -892,49 +993,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
-        selectedItemColor: primaryColor,
-        unselectedItemColor: subtleTextColor,
-        backgroundColor: backgroundColor,
-        type: BottomNavigationBarType.fixed,
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: 'Search',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: 'Chat',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Profile',
-          ),
-        ],
-        onTap: (index) {
-          if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => ServicesScreen()),
-            );
-          } else if (index == 2) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => ChatDashboard()),
-            );
-          } else if (index == 3) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => AccountScreen()),
-            );
-          }
-        },
-      ),
+      bottomNavigationBar: BottomNavBarFb2(currentIndex: 0),
     );
   }
 
@@ -973,6 +1032,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class Category {
+  final String name;
+
+  Category({required this.name});
+
+  factory Category.fromJson(Map<String, dynamic> json) {
+    return Category(
+      name: json['name'],
+    );
+  }
+}
+
+class Labor {
+  final String name;
+  final String category;
+
+  Labor({required this.name, required this.category});
+
+  factory Labor.fromJson(Map<String, dynamic> json) {
+    return Labor(
+      name: json['name'],
+      category: json['category'],
     );
   }
 }

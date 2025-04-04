@@ -2,15 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:majdoor/services/auth_service.dart';
 import 'package:majdoor/screens/dashboard.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+
+const String baseUrl =
+    'https://8402024d-94f3-49d9-a56d-2dc6043a9a34-00-2mher60iizzyr.pike.replit.dev';
 
 class OTPScreen extends StatefulWidget {
   final String phoneNumber;
-  final String? sentOTP; // For development purposes
+  final String? verificationId;
 
   const OTPScreen({
     Key? key,
     required this.phoneNumber,
-    this.sentOTP,
+    this.verificationId,
   }) : super(key: key);
 
   @override
@@ -27,13 +33,6 @@ class _OTPScreenState extends State<OTPScreen> {
   @override
   void initState() {
     super.initState();
-
-    // Auto-fill OTP for development
-    if (widget.sentOTP != null && widget.sentOTP!.length == 4) {
-      for (int i = 0; i < 4; i++) {
-        _controllers[i].text = widget.sentOTP![i];
-      }
-    }
 
     for (int i = 0; i < _focusNodes.length; i++) {
       _focusNodes[i].addListener(() {
@@ -54,20 +53,51 @@ class _OTPScreenState extends State<OTPScreen> {
 
   void _verifyOTP() async {
     String otp = _controllers.map((controller) => controller.text).join();
-    if (otp.length == 4) {
+
+    if (otp.length != 4) {
       setState(() {
-        _isVerifying = true;
-        _errorMessage = '';
+        _errorMessage = 'Please enter a complete 4-digit OTP';
       });
+      return;
+    }
 
-      final authService = AuthService();
-      final result = await authService.verifyOTP(widget.phoneNumber, otp);
+    setState(() {
+      _isVerifying = true;
+      _errorMessage = '';
+    });
 
-      setState(() {
-        _isVerifying = false;
-      });
+    try {
+      print(
+          'Verifying OTP: $otp for phone: ${widget.phoneNumber}'); // Debug log
 
-      if (result['success']) {
+      final response = await http.post(
+        Uri.parse(
+            'https://8402024d-94f3-49d9-a56d-2dc6043a9a34-00-2mher60iizzyr.pike.replit.dev/api/labors/auth/verify-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'phoneNumber': widget.phoneNumber,
+          'otp': otp,
+        }),
+      );
+
+      print('Verify Response Status: ${response.statusCode}'); // Debug log
+      print('Verify Response Body: ${response.body}'); // Debug log
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200 && data['token'] != null) {
+        // Save the auth token
+        await _saveAuthToken(data['token']);
+
+        // Save user data if available
+        if (data['user'] != null) {
+          await _saveUserData(data['user']);
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Verification successful')),
+        );
+
         // Navigate to dashboard
         Navigator.pushAndRemoveUntil(
           context,
@@ -76,12 +106,63 @@ class _OTPScreenState extends State<OTPScreen> {
         );
       } else {
         setState(() {
-          _errorMessage = result['message'];
+          _errorMessage = data['error'] ?? 'Invalid OTP';
         });
       }
-    } else {
+    } catch (e) {
+      print('Error in OTP verification: $e'); // Debug log
       setState(() {
-        _errorMessage = 'Please enter a complete 4-digit OTP';
+        _errorMessage = 'Error: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
+        _isVerifying = false;
+      });
+    }
+  }
+
+  Future<void> _saveAuthToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('auth_token', token);
+  }
+
+  Future<void> _saveUserData(Map<String, dynamic> userData) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_data', json.encode(userData));
+  }
+
+  void _resendOTP() async {
+    try {
+      setState(() {
+        _isVerifying = true;
+      });
+
+      final response = await http.post(
+        Uri.parse(
+            'https://8402024d-94f3-49d9-a56d-2dc6043a9a34-00-2mher60iizzyr.pike.replit.dev/api/labors/auth/request-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'phoneNumber': widget.phoneNumber,
+        }),
+      );
+
+      print('Resend Response: ${response.body}'); // Debug log
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('OTP resent successfully')),
+        );
+      } else {
+        throw Exception('Failed to resend OTP');
+      }
+    } catch (e) {
+      print('Error resending OTP: $e'); // Debug log
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to resend OTP')),
+      );
+    } finally {
+      setState(() {
+        _isVerifying = false;
       });
     }
   }
@@ -203,28 +284,7 @@ class _OTPScreenState extends State<OTPScreen> {
                     ),
               const SizedBox(height: 20),
               TextButton(
-                onPressed: () {
-                  // Resend OTP
-                  AuthService().requestOTP(widget.phoneNumber).then((result) {
-                    if (result['success']) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('OTP resent successfully')),
-                      );
-
-                      // Auto-fill for development
-                      if (result['otp'] != null) {
-                        final otp = result['otp'].toString();
-                        for (int i = 0; i < 4 && i < otp.length; i++) {
-                          _controllers[i].text = otp[i];
-                        }
-                      }
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(result['message'])),
-                      );
-                    }
-                  });
-                },
+                onPressed: _resendOTP,
                 child: Text(
                   'Resend OTP',
                   style: TextStyle(color: Colors.white70),

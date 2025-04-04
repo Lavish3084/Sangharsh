@@ -4,6 +4,8 @@ import 'package:majdoor/services/worker.dart';
 import 'package:majdoor/services/worker_service.dart';
 import 'package:majdoor/screens/profiles/labourprofile.dart';
 import 'package:majdoor/services/labourmodel.dart';
+import 'package:provider/provider.dart';
+import 'package:majdoor/providers/booking_provider.dart';
 
 class ServicesScreen extends StatefulWidget {
   final String? initialCategory;
@@ -25,7 +27,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
     'All',
     'Cleaning',
     'Electrician',
-    'Labourer',
+    'Labour',
     'Carpenter',
     'Painting',
     'Plumbing',
@@ -66,6 +68,161 @@ class _ServicesScreenState extends State<ServicesScreen> {
               .contains(searchController.text.toLowerCase());
       return matchesCategory && matchesSearch;
     }).toList();
+  }
+
+  Widget _buildWorkerCard(Worker worker) {
+    // Get the booking status from the provider
+    final bookingProvider = Provider.of<BookingProvider>(context, listen: true);
+    final isBooked = bookingProvider.bookings.any((booking) =>
+        booking.workerName == worker.name &&
+        (booking.status == 'pending' || booking.status == 'confirmed'));
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.all(16),
+            leading: CircleAvatar(
+              radius: 30,
+              backgroundColor: Theme.of(context).primaryColor,
+              backgroundImage: worker.imageUrl.isNotEmpty
+                  ? NetworkImage(worker.imageUrl)
+                  : null,
+              onBackgroundImageError: (e, s) {
+                print('Error loading image: ${worker.imageUrl}');
+              },
+            ),
+            title: Text(
+              worker.name,
+              style: GoogleFonts.montserrat(
+                color: Theme.of(context).textTheme.titleLarge?.color,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: 4),
+                Text(
+                  'Location: ${worker.location}',
+                  style: GoogleFonts.roboto(
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                    fontSize: 14,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.star, color: Colors.amber, size: 16),
+                    SizedBox(width: 4),
+                    Text(
+                      worker.rating.toString(),
+                      style: GoogleFonts.roboto(color: Colors.amber),
+                    ),
+                    SizedBox(width: 16),
+                    Icon(Icons.currency_rupee,
+                        color: Theme.of(context).textTheme.bodyMedium?.color,
+                        size: 16),
+                    Text(
+                      '${worker.pricePerDay} Rupees/Day',
+                      style: GoogleFonts.roboto(
+                        color: Theme.of(context).textTheme.bodyMedium?.color,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            trailing: IconButton(
+              icon: Icon(
+                worker.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                color: Theme.of(context).primaryColor,
+              ),
+              onPressed: () async {
+                await _workerService.toggleBookmark(worker.id);
+                setState(() {});
+              },
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.all(16),
+            child: SizedBox(
+              width: double.infinity,
+              child: isBooked
+                  ? Container(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle,
+                              color: Colors.green, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Booked',
+                            style: GoogleFonts.montserrat(
+                              color: Colors.green,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ProfileScreen(
+                              labourer: Labourer(
+                                id: worker.id,
+                                name: worker.name,
+                                category: worker.category,
+                                rating: worker.rating,
+                                pricePerDay: worker.pricePerDay,
+                                imageUrl: worker.imageUrl,
+                                location: worker.location,
+                                reviews: worker.rating,
+                                Rs: worker.pricePerDay,
+                                specialization: worker.specialization ?? '',
+                                experience: worker.experience ?? 0,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onPrimary,
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        'Book Now',
+                        style: GoogleFonts.montserrat(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -192,146 +349,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                     itemCount: filteredWorkers.length,
                     itemBuilder: (context, index) {
                       final worker = filteredWorkers[index];
-                      return Container(
-                        margin: EdgeInsets.only(bottom: 16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).cardColor,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          children: [
-                            ListTile(
-                              contentPadding: EdgeInsets.all(16),
-                              leading: CircleAvatar(
-                                radius: 30,
-                                backgroundColor: Theme.of(context).primaryColor,
-                                backgroundImage: AssetImage(worker.imageUrl),
-                                onBackgroundImageError: (e, s) {
-                                  print(
-                                      'Error loading image: ${worker.imageUrl}');
-                                },
-                              ),
-                              title: Text(
-                                worker.name,
-                                style: GoogleFonts.montserrat(
-                                  color: Theme.of(context)
-                                      .textTheme
-                                      .titleLarge
-                                      ?.color,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(height: 4),
-                                  Text(
-                                    'Location: ${worker.location}',
-                                    style: GoogleFonts.roboto(
-                                      color: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.color,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Icon(Icons.star,
-                                          color: Colors.amber, size: 16),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        worker.rating.toString(),
-                                        style: GoogleFonts.roboto(
-                                            color: Colors.amber),
-                                      ),
-                                      SizedBox(width: 16),
-                                      Icon(Icons.currency_rupee,
-                                          color: Theme.of(context)
-                                              .textTheme
-                                              .bodyMedium
-                                              ?.color,
-                                          size: 16),
-                                      Text(
-                                        '${worker.pricePerDay} Rupees/Day',
-                                        style: GoogleFonts.roboto(
-                                          color: Theme.of(context)
-                                              .textTheme
-                                              .bodyMedium
-                                              ?.color,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              trailing: IconButton(
-                                icon: Icon(
-                                  worker.isBookmarked
-                                      ? Icons.bookmark
-                                      : Icons.bookmark_border,
-                                  color: Theme.of(context).primaryColor,
-                                ),
-                                onPressed: () async {
-                                  await _workerService
-                                      .toggleBookmark(worker.id);
-                                  setState(() {});
-                                },
-                              ),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.all(16),
-                              child: SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => ProfileScreen(
-                                          labourer: Labourer(
-                                            id: worker.id,
-                                            name: worker.name,
-                                            category: worker.category,
-                                            rating: worker.rating,
-                                            pricePerDay: worker.pricePerDay,
-                                            imageUrl: worker.imageUrl,
-                                            location: worker.location,
-                                            reviews: worker.rating,
-                                            Rs: worker.pricePerDay,
-                                            specialization:
-                                                worker.specialization ?? '',
-                                            experience: worker.experience ?? 0,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        Theme.of(context).primaryColor,
-                                    foregroundColor:
-                                        Theme.of(context).colorScheme.onPrimary,
-                                    padding: EdgeInsets.symmetric(vertical: 16),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'Book Now',
-                                    style: GoogleFonts.montserrat(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
+                      return _buildWorkerCard(worker);
                     },
                   ),
                 ),

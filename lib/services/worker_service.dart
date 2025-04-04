@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:majdoor/services/worker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,7 +22,32 @@ class WorkerService {
       return _workers;
     }
 
-    // Try to load from local storage first
+    // Fetch from API
+    try {
+      final response =
+          await http.get(Uri.parse('https://8402024d-94f3-49d9-a56d-2dc6043a9a34-00-2mher60iizzyr.pike.replit.dev/api/labors'));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        _workers = data.map((item) => Worker.fromJson(item)).toList();
+
+        // Save to local storage
+        await _saveWorkersToStorage();
+
+        return _workers;
+      } else {
+        print('Failed to load workers from API: ${response.body}');
+      }
+    } catch (e) {
+      print('Error fetching workers from API: $e');
+    }
+
+    // Fallback to local storage if API fails
+    return await _loadWorkersFromStorage();
+  }
+
+  // Load workers from local storage
+  Future<List<Worker>> _loadWorkersFromStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final workersJson = prefs.getString(_storageKey);
@@ -35,91 +61,7 @@ class WorkerService {
       print('Error loading workers from storage: $e');
     }
 
-    // If no workers in storage, use dummy data
-    await Future.delayed(Duration(milliseconds: 800)); // Simulate network delay
-
-    _workers = [
-      Worker(
-        id: '1',
-        name: 'Himanshu',
-        location: 'Bihar, India',
-        rating: 4.5,
-        pricePerDay: 500,
-        imageUrl: 'assets/images/1.png',
-        category: 'Labourer',
-        specialization: 'Heavy Lifting',
-        experience: 3,
-        lastMessage: 'I can start work tomorrow',
-        lastMessageTime: '10:30 AM',
-        unreadCount: 2,
-        isOnline: true,
-      ),
-      Worker(
-        id: '2',
-        name: 'Rajesh Kumar',
-        location: 'Delhi, India',
-        rating: 4.7,
-        pricePerDay: 600,
-        imageUrl: 'assets/images/2.png',
-        category: 'Electrician',
-        specialization: 'Wiring & Repairs',
-        experience: 5,
-        lastMessage: 'The wiring needs to be replaced',
-        lastMessageTime: 'Yesterday',
-        unreadCount: 0,
-        isOnline: false,
-      ),
-      Worker(
-        id: '3',
-        name: 'Sanm',
-        location: 'Delhi, India',
-        rating: 4.7,
-        pricePerDay: 600,
-        imageUrl: 'assets/images/3.png',
-        category: 'Plumbing',
-        specialization: 'Pipe Fitting',
-        experience: 4,
-        lastMessage: 'I fixed the leaking pipe',
-        lastMessageTime: '2 days ago',
-        unreadCount: 0,
-        isOnline: true,
-      ),
-      Worker(
-        id: '4',
-        name: 'Chulla',
-        location: 'Delhi, India',
-        rating: 4.7,
-        pricePerDay: 600,
-        imageUrl: 'assets/images/4.png',
-        category: 'Labourer',
-        specialization: 'Construction',
-        experience: 2,
-        lastMessage: 'When do you need me to come?',
-        lastMessageTime: '3 days ago',
-        unreadCount: 1,
-        isOnline: false,
-      ),
-      Worker(
-        id: '5',
-        name: 'Mahesh',
-        location: 'Delhi, India',
-        rating: 4.7,
-        pricePerDay: 600,
-        imageUrl: 'assets/images/5.png',
-        category: 'Carpenter',
-        specialization: 'Furniture Making',
-        experience: 6,
-        lastMessage: 'I can build that cabinet for you',
-        lastMessageTime: 'Last week',
-        unreadCount: 0,
-        isOnline: true,
-      ),
-    ];
-
-    // Save to local storage
-    _saveWorkersToStorage();
-
-    return _workers;
+    return [];
   }
 
   // Save workers to local storage
@@ -222,6 +164,35 @@ class WorkerService {
     } else {
       // More than a week
       return 'Last week';
+    }
+  }
+
+  Future<List<Worker>> getFavouriteWorkers() async {
+    final workers = await getWorkers();
+    return workers.where((worker) => worker.isFavourite).toList();
+  }
+
+  Future<bool> isFavourite(String workerId) async {
+    final workers = await getWorkers();
+    final workerIndex = workers.indexWhere((w) => w.id == workerId);
+    if (workerIndex != -1) {
+      return workers[workerIndex].isFavourite;
+    }
+    return false;
+  }
+
+  Future<void> toggleFavourite(String workerId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final workers = await getWorkers();
+    final workerIndex = workers.indexWhere((w) => w.id == workerId);
+
+    if (workerIndex != -1) {
+      // Toggle the favorite status
+      workers[workerIndex].isFavourite = !workers[workerIndex].isFavourite;
+
+      // Save updated worker list
+      final workersJson = workers.map((w) => w.toJson()).toList();
+      await prefs.setString('workers_data', jsonEncode(workersJson));
     }
   }
 }

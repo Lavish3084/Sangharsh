@@ -26,6 +26,7 @@ import 'package:majdoor/screens/selectlanguage.dart';
 import 'package:majdoor/screens/feedbackscreen.dart';
 import 'screens/chat/chatscreen.dart';
 import 'package:majdoor/screens/profiles/labourprofile.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 late Size mq;
 void main() async {
@@ -38,6 +39,9 @@ void main() async {
 
   // Set immersive sticky mode after Firebase is initialized
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+  // Initialize plugins that need early initialization
+  var _ = Razorpay();
 
   runApp(
     MultiProvider(
@@ -76,6 +80,7 @@ class MyApp extends StatelessWidget {
                   laborerName: "Alex Johnson",
                   laborerJob: "Moving Specialist",
                   laborerImageUrl: "https://picsum.photos/100/100",
+                  pricePerDay: 1000,
                 ),
           },
           title: 'Sangharsh',

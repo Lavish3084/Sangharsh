@@ -12,6 +12,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:majdoor/screens/profiles/account.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:sign_in_button/sign_in_button.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+
+const String baseUrl =
+    'https://8402024d-94f3-49d9-a56d-2dc6043a9a34-00-2mher60iizzyr.pike.replit.dev';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -22,92 +28,106 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _phoneController = TextEditingController();
   bool _isLoading = false;
 
-  _handleGoogleBtnClick() {
-    _signInWithGoogle().then((user) {
-      Navigator.pop(context);
-      if (user != null && user.user != null) {
-        var userData = user.user!;
+  _handleGoogleBtnClick() async {
+    try {
+      setState(() => _isLoading = true);
+      print('Starting Google Sign In process...'); // Debug log
 
-        dev.log('User: ${userData.displayName ?? 'N/A'}, '
-            'Email: ${userData.email ?? 'N/A'}, '
-            'Phone: ${userData.phoneNumber ?? 'N/A'}, '
-            'Photo: ${userData.photoURL ?? 'N/A'}');
+      final UserCredential? userCredential = await _signInWithGoogle();
 
-        showDialog(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: Text("User Details"),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  userData.photoURL != null
-                      ? CircleAvatar(
-                          backgroundImage: NetworkImage(userData.photoURL!),
-                          radius: 40,
-                        )
-                      : Icon(Icons.account_circle, size: 80),
-                  SizedBox(height: 10),
-                  Text("Name: ${userData.displayName ?? 'N/A'}"),
-                  Text("Email: ${userData.email ?? 'N/A'}"),
-                  Text("Phone: ${userData.phoneNumber ?? 'N/A'}"),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    if (Navigator.canPop(context)) {
-                      Navigator.pop(context);
-                    }
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => DashboardScreen(),
-                      ),
-                    );
-                  },
-                  child: Text("Continue"),
-                ),
-                TextButton(
-                  onPressed: _logout,
-                  child: Text("Logout"),
-                ),
-              ],
-            );
-          },
+      if (userCredential?.user != null) {
+        print('Successfully signed in: ${userCredential?.user?.email}');
+
+        // Send Google user info to backend for registration/login
+        final response = await http.post(
+          Uri.parse('$baseUrl/api/labors/auth/google'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'googleId': userCredential!.user!.uid,
+            'email': userCredential.user!.email,
+            'fullName': userCredential.user!.displayName,
+            'profilePicture': userCredential.user!.photoURL,
+          }),
         );
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          // Store user info in SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('userEmail', data['user']['email']);
+          await prefs.setString('userName', data['user']['fullName']);
+          await prefs.setString('token', data['token']); // Store JWT token if needed
+
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => DashboardScreen()),
+            );
+          }
+        } else {
+          print('Backend error: ${response.body}');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Sign in failed. Please try again')),
+          );
+        }
       } else {
-        dev.log('Error: User or user data is null');
+        print('Sign in failed: No user credential returned');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Sign in failed. Please try again')),
+          );
+        }
       }
-    }).catchError((e) {
+    } catch (e) {
+      print('Error during Google Sign In: $e');
       if (mounted) {
-        Dialogs.showSnackbar(context, 'Something Went Wrong (Check Internet!)');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
       }
-    });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Future<UserCredential?> _signInWithGoogle() async {
     try {
+      print('Checking internet connection...'); // Debug log
       await InternetAddress.lookup('google.com');
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+
+      print('Initializing Google Sign In...'); // Debug log
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        scopes: [
+          'email',
+          'profile',
+        ],
+      );
+
+      print('Requesting Google account selection...'); // Debug log
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
       if (googleUser == null) {
-        dev.log('Google Sign-In canceled.');
+        print('User canceled Google Sign In');
         return null;
       }
 
+      print('Getting Google auth details...'); // Debug log
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
+      print('Creating Firebase credential...'); // Debug log
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      final userCredential = await APIs.auth.signInWithCredential(credential);
-      return userCredential;
+      print('Signing in to Firebase...'); // Debug log
+      return await FirebaseAuth.instance.signInWithCredential(credential);
     } catch (e) {
-      dev.log('Error signing in with Google: $e');
-      return null;
+      print('Detailed error in _signInWithGoogle: $e');
+      rethrow; // Rethrow to handle in _handleGoogleBtnClick
     }
   }
 
@@ -122,11 +142,12 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _requestOTP() async {
-    final phoneNumber = _phoneController.text.trim();
+    String phoneNumber = _phoneController.text.trim();
+    phoneNumber = phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
 
-    if (phoneNumber.isEmpty) {
+    if (phoneNumber.isEmpty || phoneNumber.length != 10) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter your phone number')),
+        SnackBar(content: Text('Please enter a valid 10-digit phone number')),
       );
       return;
     }
@@ -136,45 +157,65 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      final authService = AuthService();
-      final result = await authService.requestOTP(phoneNumber);
+      final formattedPhone = '+91$phoneNumber';
+      print('Requesting OTP for: $formattedPhone');
 
-      setState(() {
-        _isLoading = false;
-      });
+      final response = await http.post(
+        Uri.parse(
+            'https://8402024d-94f3-49d9-a56d-2dc6043a9a34-00-2mher60iizzyr.pike.replit.dev/api/labors/auth/request-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'phoneNumber': formattedPhone,
+        }),
+      );
 
-      if (result['success']) {
-        // Show success message
+      print('API Response Status: ${response.statusCode}');
+      print('API Response Body: ${response.body}');
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'])),
+          SnackBar(content: Text('OTP sent successfully')),
         );
 
-        // Navigate to OTP screen
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => OTPScreen(
-              phoneNumber: result['phoneNumber'] ?? phoneNumber,
-              sentOTP: result['otp'], // This will be null in production
+              phoneNumber: formattedPhone,
             ),
           ),
         );
       } else {
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'])),
-        );
+        throw Exception(data['error'] ?? 'Failed to send OTP');
       }
     } catch (e) {
+      print('Error sending OTP: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    } finally {
       setState(() {
         _isLoading = false;
       });
-
-      print('Error in _requestOTP: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An error occurred. Please try again.')),
-      );
     }
+  }
+
+  // Add this method to verify Firebase initialization
+  void _checkFirebaseInitialization() {
+    try {
+      final auth = FirebaseAuth.instance;
+      print('Firebase Auth is initialized: ${auth != null}');
+    } catch (e) {
+      print('Firebase Auth initialization error: $e');
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _checkFirebaseInitialization(); // Add this to check Firebase setup
   }
 
   @override
@@ -231,24 +272,31 @@ class _LoginPageState extends State<LoginPage> {
                     SizedBox(
                       height: 45,
                       width: 150,
-                      child: _isLoading
-                          ? Center(child: CircularProgressIndicator())
-                          : ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.black,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
                                 ),
-                              ),
-                              child: Text(
+                              )
+                            : Text(
                                 'Get OTP',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 18,
                                 ),
                               ),
-                              onPressed: _requestOTP,
-                            ),
+                        onPressed: _isLoading ? null : _requestOTP,
+                      ),
                     ),
                     SizedBox(height: 10),
                     SizedBox(

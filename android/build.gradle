@@ -2,14 +2,17 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven {
+            url "https://dl.bintray.com/razorpay/maven"
+                        url "https://jitpack.io"
+        }
     }
 }
 
 rootProject.buildDir = "../build"
+
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
-}
-subprojects {
     project.evaluationDependsOn(":app")
 }
 

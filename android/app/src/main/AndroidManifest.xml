@@ -3,11 +3,13 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     
     <application
         android:label="majdoor"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        android:usesCleartextTraffic="true"
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -59,7 +61,7 @@
         <!-- If your app emails -->
         <intent>
             <action android:name="android.intent.action.SEND" />
-            <data android:mimeType="*/*" />
+            <data android:mimeType="text/plain" />
         </intent>
     </queries>
 </manifest>

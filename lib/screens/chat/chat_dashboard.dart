@@ -280,6 +280,7 @@ class _ChatDashboardState extends State<ChatDashboard>
                 laborerJob: worker.category,
                 laborerImageUrl: worker.imageUrl,
                 laborerRating: worker.rating,
+                pricePerDay: worker.pricePerDay,
               ),
             ),
           ).then((_) {
@@ -318,7 +319,7 @@ class _ChatDashboardState extends State<ChatDashboard>
                             width: 2,
                           ),
                           image: DecorationImage(
-                            image: AssetImage(worker.imageUrl),
+                            image: NetworkImage(worker.imageUrl),
                             fit: BoxFit.cover,
                           ),
                           boxShadow: [

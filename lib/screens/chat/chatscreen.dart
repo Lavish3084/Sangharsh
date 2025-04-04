@@ -12,6 +12,13 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:io';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as path;
+import 'package:majdoor/screens/profiles/labourprofile.dart';
+import 'package:majdoor/services/labourmodel.dart';
+import 'package:provider/provider.dart';
+import 'package:majdoor/providers/booking_provider.dart';
+import 'package:majdoor/services/booking.dart';
+import 'package:majdoor/screens/bookings.dart';
+import 'dart:async';
 
 // Define the Message class only once
 class Message {
@@ -21,6 +28,8 @@ class Message {
   final String senderName;
   final String? imageUrl;
   final bool isRead;
+  final String roomId;
+  final String receiverName;
 
   Message({
     required this.text,
@@ -29,7 +38,35 @@ class Message {
     required this.senderName,
     this.imageUrl,
     this.isRead = false,
+    required this.roomId,
+    required this.receiverName,
   });
+
+  factory Message.fromJson(Map<String, dynamic> json) {
+    return Message(
+      text: json['text'] ?? '',
+      isMe: json['senderName'] == 'Me',
+      timestamp:
+          DateTime.parse(json['timestamp'] ?? DateTime.now().toIso8601String()),
+      senderName: json['senderName'] ?? 'Unknown',
+      imageUrl: json['imageUrl'],
+      isRead: json['isRead'] ?? false,
+      roomId: json['roomId'] ?? '',
+      receiverName: json['receiverName'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'text': text,
+      'senderName': senderName,
+      'timestamp': timestamp.toIso8601String(),
+      'roomId': roomId,
+      'receiverName': receiverName,
+      'imageUrl': imageUrl,
+      'isRead': isRead,
+    };
+  }
 }
 
 // Add this at the top level of your file, outside any class
@@ -50,7 +87,7 @@ class ChatScreen extends StatefulWidget {
     required this.laborerJob,
     required this.laborerImageUrl,
     this.laborerRating = 4.8,
-    this.pricePerDay = 0,
+    required this.pricePerDay,
   }) : super(key: key);
 
   @override
@@ -69,58 +106,30 @@ class _ChatScreenState extends State<ChatScreen>
   // Add this at the class level
   String _chatRoomId = '';
 
-  late List<Message> _messages = [
-    Message(
-      text:
-          "Hey there! I'm available for your project. What kind of work do you need done?",
-      isMe: false,
-      timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
-      senderName: "John Doe",
-      isRead: true,
-    ),
-    Message(
-      text:
-          "I need help with moving some furniture this weekend. Are you available on Saturday?",
-      isMe: true,
-      timestamp: DateTime.now().subtract(const Duration(minutes: 25)),
-      senderName: "Me",
-      isRead: true,
-    ),
-    Message(
-      text: "Yes, I'm available this Saturday. What time would work for you?",
-      isMe: false,
-      timestamp: DateTime.now().subtract(const Duration(minutes: 20)),
-      senderName: "John Doe",
-      isRead: true,
-    ),
-    Message(
-      text:
-          "Around 10 AM. It should take about 3 hours. I'll pay the hourly rate mentioned in your profile.",
-      isMe: true,
-      timestamp: DateTime.now().subtract(const Duration(minutes: 18)),
-      senderName: "Me",
-      isRead: true,
-    ),
-    Message(
-      text: "That works for me. Here's a photo of my moving equipment.",
-      isMe: false,
-      timestamp: DateTime.now().subtract(const Duration(minutes: 15)),
-      senderName: "John Doe",
-      // Fixed image URL - using a valid network URL instead of a local path
-      imageUrl: "https://picsum.photos/200/300",
-      isRead: true,
-    ),
-  ];
+  // Add this at the class level (inside _ChatScreenState)
+  final String serverUrl =
+      'https://8402024d-94f3-49d9-a56d-2dc6043a9a34-00-2mher60iizzyr.pike.replit.dev';
 
-  // Remove the socket declaration here and use the global one
-  // IO.Socket? socket; <- Remove this line
+  // Initialize _messages as an empty list
+  late List<Message> _messages = [];
+
   bool isConnected = false;
+
+  // Add this field
+  bool _isBooked = false;
 
   @override
   void initState() {
     super.initState();
-    // Generate a unique chat room ID based on the laborer
     _chatRoomId = _generateChatRoomId(widget.laborerName);
+
+    // Add periodic connection check
+    Timer.periodic(Duration(seconds: 30), (timer) {
+      if (!isConnected && mounted) {
+        print('🔄 Attempting periodic reconnection...');
+        _reconnectSocket();
+      }
+    });
 
     _animationController = AnimationController(
       vsync: this,
@@ -131,18 +140,13 @@ class _ChatScreenState extends State<ChatScreen>
       curve: Curves.easeInOut,
     );
 
-    // Initialize socket connection
     _connectToSocket();
+    _loadPastMessages(); // Load past messages from the server
 
-    // Load past messages from server
-    _loadPastMessages();
-
-    // Simulate typing animation on load
     Future.delayed(const Duration(milliseconds: 500), () {
       _animationController.forward();
     });
 
-    // Ensure scroll to bottom on initial build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
     });
@@ -150,131 +154,84 @@ class _ChatScreenState extends State<ChatScreen>
 
   // Generate a consistent chat room ID
   String _generateChatRoomId(String laborerName) {
-    // In a real app, you'd use actual user IDs
     final currentUserId = "current_user_123";
     final laborerId = laborerName.replaceAll(' ', '_').toLowerCase();
-
-    // Create a consistent ID regardless of who initiates the chat
     List<String> ids = [currentUserId, laborerId];
     ids.sort(); // Sort to ensure same ID regardless of order
     return ids.join('_');
   }
 
   void _connectToSocket() {
-    final serverUrl = 'http://10.0.2.2:3000';
-
     try {
-      // Check if we already have a global socket connection
       if (_globalSocket != null) {
         if (_globalSocket!.connected) {
           print('✅ Using existing socket connection');
-
-          // Leave any previous room
-          _globalSocket!.emit('leaveAllRooms');
-
-          // Join the new room
+          _globalSocket!.emit('leaveRoom', _chatRoomId);
           _globalSocket!.emit('joinRoom', _chatRoomId);
-          print('Joined chat room: $_chatRoomId');
-
-          setState(() {
-            isConnected = true;
-          });
-
-          // Set up event listeners for this chat screen
+          setState(() => isConnected = true);
           _setupSocketListeners();
           return;
         } else {
-          // Disconnect the existing socket if it's not connected
           _globalSocket!.disconnect();
           _globalSocket = null;
         }
       }
 
-      // Create a new socket connection
       _globalSocket = IO.io(serverUrl, <String, dynamic>{
         'transports': ['websocket'],
         'autoConnect': true,
         'reconnection': true,
-        'reconnectionDelay': 2000,
-        'reconnectionAttempts': 5
+        'reconnectionAttempts': 5,
+        'reconnectionDelay': 1000,
+        'forceNew': true,
       });
 
-      // Set up connection event handlers
-      _globalSocket?.onConnect((_) {
+      _globalSocket!.onConnect((_) {
         print('✅ Connected to chat server');
         _isGlobalSocketConnected = true;
-
         if (mounted) {
-          setState(() {
-            isConnected = true;
-          });
+          setState(() => isConnected = true);
         }
-
-        // Join the specific chat room
-        _globalSocket?.emit('joinRoom', _chatRoomId);
-        print('Joined chat room: $_chatRoomId');
+        _globalSocket!.emit('joinRoom', _chatRoomId);
+        print('Joined room: $_chatRoomId');
       });
 
-      _globalSocket?.onDisconnect((_) {
-        print('⚠️ Disconnected from chat server');
-        _isGlobalSocketConnected = false;
-
-        if (mounted) {
-          setState(() {
-            isConnected = false;
-          });
-        }
-      });
-
-      _globalSocket?.on('connect_error', (error) {
-        print('❌ Connection error: $error');
-        _isGlobalSocketConnected = false;
-
-        if (mounted) {
-          setState(() {
-            isConnected = false;
-          });
-        }
-      });
-
-      // Set up event listeners for this chat screen
       _setupSocketListeners();
-
-      // Make sure to connect
-      _globalSocket?.connect();
+      _globalSocket!.connect();
     } catch (e) {
       print('❌ Socket initialization error: $e');
+      setState(() => isConnected = false);
     }
   }
 
   // Separate method to set up message-specific listeners
   void _setupSocketListeners() {
-    // Remove any existing listeners to avoid duplicates
     _globalSocket?.off('newMessage');
 
-    // Set up new message listener
     _globalSocket?.on('newMessage', (data) {
-      print('📩 New message received: $data');
+      print('📩 Received message: $data');
 
-      // Only process messages for this chat room
-      if (data['roomId'] == _chatRoomId) {
-        // Only add the message if it's not from the current user
-        if (data['senderName'] != 'Me') {
-          if (mounted) {
-            setState(() {
-              _messages.add(Message(
-                text: data['text'],
-                isMe: false,
-                timestamp: DateTime.parse(data['timestamp']),
-                senderName: data['senderName'],
-                isRead: false,
-              ));
-            });
-
-            _scrollToBottom();
-          }
+      if (data['roomId'] == _chatRoomId && data['senderName'] != 'Me') {
+        if (mounted) {
+          setState(() {
+            _messages.add(Message(
+              text: data['text'] ?? '',
+              isMe: false,
+              timestamp: DateTime.parse(
+                  data['timestamp'] ?? DateTime.now().toIso8601String()),
+              senderName: data['senderName'] ?? widget.laborerName,
+              roomId: _chatRoomId,
+              receiverName: 'Me',
+            ));
+          });
+          _scrollToBottom();
         }
       }
+    });
+
+    _globalSocket?.on('messageError', (error) {
+      print('❌ Message error: $error');
+      _showConnectionError();
     });
   }
 
@@ -321,88 +278,66 @@ class _ChatScreenState extends State<ChatScreen>
   void _sendMessage() {
     if (_messageController.text.trim().isEmpty) return;
 
-    HapticFeedback.mediumImpact();
-
     final messageText = _messageController.text.trim();
     final now = DateTime.now();
 
-    // Create message object
-    final message = Message(
-      text: messageText,
-      isMe: true,
-      timestamp: now,
-      senderName: "Me",
-    );
-
-    // Add message to local list
-    setState(() {
-      _messages.add(message);
-    });
-
-    // Prepare data for socket emission
     final messageData = {
       'text': messageText,
-      'senderName': "Me",
+      'senderName': 'Me',
       'timestamp': now.toIso8601String(),
       'roomId': _chatRoomId,
       'receiverName': widget.laborerName,
     };
 
-    // Emit message to server if connected
-    if (isConnected && _globalSocket != null) {
-      _globalSocket!.emit('sendMessage', messageData);
-      print('📤 Message sent to server for room: $_chatRoomId');
+    if (_globalSocket?.connected ?? false) {
+      try {
+        _globalSocket!.emit('sendMessage', messageData);
+        print('📤 Message sent: $messageData');
+
+        // Add message to local state
+        setState(() {
+          _messages.add(Message(
+            text: messageText,
+            isMe: true,
+            timestamp: now,
+            senderName: 'Me',
+            roomId: _chatRoomId,
+            receiverName: widget.laborerName,
+          ));
+        });
+
+        _scrollToBottom();
+      } catch (e) {
+        print('❌ Error sending message: $e');
+        _showConnectionError();
+      }
     } else {
-      print('⚠️ Cannot send message: not connected to server');
-      // Show a snackbar to inform the user
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Not connected to chat server. Message saved locally.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      print('⚠️ Socket not connected');
+      _reconnectSocket();
     }
 
     _messageController.clear();
-    _scrollToBottom();
   }
 
   Future<void> _loadPastMessages() async {
     try {
-      // Add the chat room ID as a query parameter
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:3000/messages?roomId=$_chatRoomId'),
+        Uri.parse('$serverUrl/api/messages?roomId=$_chatRoomId'),
       );
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-
-        if (data.isNotEmpty) {
-          setState(() {
-            // Replace existing messages with loaded ones
-            _messages = data
-                .map((item) => Message(
-                      text: item['text'] ?? '',
-                      isMe: item['senderName'] == 'Me',
-                      timestamp: DateTime.parse(item['timestamp'] ??
-                          DateTime.now().toIso8601String()),
-                      senderName: item['senderName'] ?? 'Unknown',
-                      imageUrl: item['imageUrl'],
-                      isRead: item['isRead'] ?? false,
-                    ))
-                .toList();
-          });
-
-          print('Loaded ${_messages.length} messages for room: $_chatRoomId');
-        } else {
-          print('No messages found for room: $_chatRoomId');
-        }
-
-        _scrollToBottom();
+        setState(() {
+          _messages = data.map((msg) => Message.fromJson(msg)).toList();
+          _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+        });
+      } else {
+        print('❌ Failed to load messages: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error loading past messages: $e');
+      print('❌ Error loading messages: $e');
     }
+    _scrollToBottom();
   }
 
   Future<void> _handleAttachment() async {
@@ -482,6 +417,8 @@ class _ChatScreenState extends State<ChatScreen>
         timestamp: now,
         senderName: "Me",
         imageUrl: imagePath,
+        roomId: _chatRoomId,
+        receiverName: widget.laborerName,
       ));
     });
 
@@ -523,6 +460,8 @@ class _ChatScreenState extends State<ChatScreen>
         timestamp: now,
         senderName: "Me",
         imageUrl: filePath, // Store the file path
+        roomId: _chatRoomId,
+        receiverName: widget.laborerName,
       ));
     });
 
@@ -533,6 +472,8 @@ class _ChatScreenState extends State<ChatScreen>
         isMe: true,
         timestamp: now,
         senderName: "Me",
+        roomId: _chatRoomId,
+        receiverName: widget.laborerName,
       ));
     });
 
@@ -549,6 +490,8 @@ class _ChatScreenState extends State<ChatScreen>
           isMe: true,
           timestamp: now,
           senderName: "Me",
+          roomId: _chatRoomId,
+          receiverName: widget.laborerName,
         ));
       });
 
@@ -558,8 +501,20 @@ class _ChatScreenState extends State<ChatScreen>
     }
   }
 
+  // Replace the current _checkBookingStatus method with this:
+  void _checkBookingStatus() {
+    // Use Provider.of with listen: true to rebuild when bookings change
+    final bookingProvider = Provider.of<BookingProvider>(context, listen: true);
+    setState(() {
+      _isBooked = bookingProvider.bookings.any((booking) =>
+          booking.workerName == widget.laborerName &&
+          (booking.status == 'pending' || booking.status == 'confirmed'));
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    _checkBookingStatus(); // Add this line at the start of build
     final isDark = _themeMode == ThemeMode.dark;
 
     // Define theme colors
@@ -603,11 +558,20 @@ class _ChatScreenState extends State<ChatScreen>
                   ),
                 ],
               ),
-              child: CircleAvatar(
-                backgroundImage: NetworkImage(widget.laborerImageUrl),
-                onBackgroundImageError: (exception, stackTrace) {},
-                radius: 18,
-                backgroundColor: Colors.grey[300],
+              child: ClipOval(
+                child: widget.laborerImageUrl.isNotEmpty
+                    ? Image.network(
+                        widget.laborerImageUrl,
+                        fit: BoxFit.cover,
+                        width: 40,
+                        height: 40,
+                        errorBuilder: (context, error, stackTrace) {
+                          print(
+                              'Error loading image: ${widget.laborerImageUrl}');
+                          return Icon(Icons.person, size: 30);
+                        },
+                      )
+                    : Icon(Icons.person, size: 30),
               ),
             ),
             const SizedBox(width: 12),
@@ -616,13 +580,29 @@ class _ChatScreenState extends State<ChatScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    widget.laborerName,
-                    style: GoogleFonts.poppins(
-                      color: textColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          widget.laborerName,
+                          style: GoogleFonts.poppins(
+                            color: textColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (_isBooked)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Icon(
+                            Icons.verified,
+                            color: Colors.green,
+                            size: 16,
+                          ),
+                        ),
+                    ],
                   ),
                   Row(
                     children: [
@@ -707,53 +687,20 @@ class _ChatScreenState extends State<ChatScreen>
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 30,
-                    child: widget.laborerImageUrl.startsWith('assets/')
-                        ? Image.asset(
+                  ClipOval(
+                    child: widget.laborerImageUrl.isNotEmpty
+                        ? Image.network(
                             widget.laborerImageUrl,
                             fit: BoxFit.cover,
+                            width: 60,
+                            height: 60,
                             errorBuilder: (context, error, stackTrace) {
                               print(
                                   'Error loading image: ${widget.laborerImageUrl}');
-                              return Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      primaryColor.withOpacity(0.7),
-                                      primaryColor.withOpacity(0.3),
-                                    ],
-                                  ),
-                                ),
-                                child: Icon(
-                                  Icons.person,
-                                  size: 30,
-                                  color: Colors.white,
-                                ),
-                              );
+                              return Icon(Icons.person, size: 30);
                             },
                           )
-                        : Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  primaryColor.withOpacity(0.7),
-                                  primaryColor.withOpacity(0.3),
-                                ],
-                              ),
-                            ),
-                            child: Icon(
-                              Icons.person,
-                              size: 30,
-                              color: Colors.white,
-                            ),
-                          ),
+                        : Icon(Icons.person, size: 30),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -794,21 +741,88 @@ class _ChatScreenState extends State<ChatScreen>
                       ],
                     ),
                   ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      "Book",
-                      style: GoogleFonts.poppins(
-                        color: primaryColor,
-                        fontWeight: FontWeight.bold,
+                  if (!_isBooked)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: GestureDetector(
+                        onTap: () {
+                          // Create a new booking
+                          final booking = Booking(
+                            id: DateTime.now().toString(),
+                            workerName: widget.laborerName,
+                            workerType: widget.laborerJob,
+                            bookingDate: DateTime.now(),
+                            price: widget.pricePerDay.toDouble(),
+                            status: 'pending',
+                          );
+
+                          // Add the booking using the provider
+                          Provider.of<BookingProvider>(context, listen: false)
+                              .addBooking(booking);
+
+                          // Update local state
+                          setState(() {
+                            _isBooked = true;
+                          });
+
+                          // Show confirmation
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  'Booking confirmed for ${widget.laborerName}'),
+                              backgroundColor: Colors.green,
+                              action: SnackBarAction(
+                                label: 'View Bookings',
+                                textColor: Colors.white,
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) => BookingsScreen()),
+                                  );
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          "Book Now",
+                          style: GoogleFonts.poppins(
+                            color: primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle,
+                              color: Colors.green, size: 16),
+                          const SizedBox(width: 4),
+                          Text(
+                            "Booked",
+                            style: GoogleFonts.poppins(
+                              color: Colors.green,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -1267,6 +1281,41 @@ class _ChatScreenState extends State<ChatScreen>
       );
     }
   }
+
+  // Add a reconnection method
+  void _reconnectSocket() {
+    if (_globalSocket != null) {
+      _globalSocket!.disconnect();
+      _globalSocket = null;
+    }
+    _connectToSocket();
+  }
+
+  // Add a method to show connection error
+  void _showConnectionError() {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('Connection issue. Trying to reconnect...'),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: _reconnectSocket,
+            textColor: Colors.white,
+          ),
+        ),
+      );
+    }
+  }
 }
 
 // Modify the LaborMarketplaceApp class to be a simple widget that returns ChatScreen
@@ -1280,6 +1329,8 @@ class LaborMarketplaceApp extends StatelessWidget {
       laborerName: "Alex Johnson",
       laborerJob: "Moving Specialist",
       laborerImageUrl: "https://picsum.photos/100/100",
+      pricePerDay: 500,
+      laborerRating: 4.8,
     );
   }
 }
