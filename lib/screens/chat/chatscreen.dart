@@ -108,11 +108,63 @@ class _ChatScreenState extends State<ChatScreen>
 
   // Add this at the class level (inside _ChatScreenState)
   final String serverUrl =
-      'https://8402024d-94f3-49d9-a56d-2dc6043a9a34-00-2mher60iizzyr.pike.replit.dev';
+      'https://sangharsh-backend.onrender.com';
 
-  // Initialize _messages as an empty list
-  late List<Message> _messages = [];
+  late List<Message> _messages = [
+    Message(
+      text:
+          "Hey there! I'm available for your project. What kind of work do you need done?",
+      isMe: false,
+      timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
+      senderName: "John Doe",
+      isRead: true,
+      roomId: _chatRoomId,
+      receiverName: "Me",
+    ),
+    Message(
+      text:
+          "I need help with moving some furniture this weekend. Are you available on Saturday?",
+      isMe: true,
+      timestamp: DateTime.now().subtract(const Duration(minutes: 25)),
+      senderName: "Me",
+      isRead: true,
+      roomId: _chatRoomId,
+      receiverName: widget.laborerName,
+    ),
+    Message(
+      text: "Yes, I'm available this Saturday. What time would work for you?",
+      isMe: false,
+      timestamp: DateTime.now().subtract(const Duration(minutes: 20)),
+      senderName: "John Doe",
+      isRead: true,
+      roomId: _chatRoomId,
+      receiverName: widget.laborerName,
+    ),
+    Message(
+      text:
+          "Around 10 AM. It should take about 3 hours. I'll pay the hourly rate mentioned in your profile.",
+      isMe: true,
+      timestamp: DateTime.now().subtract(const Duration(minutes: 18)),
+      senderName: "Me",
+      isRead: true,
+      roomId: _chatRoomId,
+      receiverName: widget.laborerName,
+    ),
+    Message(
+      text: "That works for me. Here's a photo of my moving equipment.",
+      isMe: false,
+      timestamp: DateTime.now().subtract(const Duration(minutes: 15)),
+      senderName: "John Doe",
+      // Fixed image URL - using a valid network URL instead of a local path
+      imageUrl: "https://picsum.photos/200/300",
+      isRead: true,
+      roomId: _chatRoomId,
+      receiverName: widget.laborerName,
+    ),
+  ];
 
+  // Remove the socket declaration here and use the global one
+  // IO.Socket? socket; <- Remove this line
   bool isConnected = false;
 
   // Add this field
@@ -141,7 +193,7 @@ class _ChatScreenState extends State<ChatScreen>
     );
 
     _connectToSocket();
-    _loadPastMessages(); // Load past messages from the server
+    _loadPastMessages();
 
     Future.delayed(const Duration(milliseconds: 500), () {
       _animationController.forward();
@@ -154,8 +206,11 @@ class _ChatScreenState extends State<ChatScreen>
 
   // Generate a consistent chat room ID
   String _generateChatRoomId(String laborerName) {
+    // In a real app, you'd use actual user IDs
     final currentUserId = "current_user_123";
     final laborerId = laborerName.replaceAll(' ', '_').toLowerCase();
+
+    // Create a consistent ID regardless of who initiates the chat
     List<String> ids = [currentUserId, laborerId];
     ids.sort(); // Sort to ensure same ID regardless of order
     return ids.join('_');
@@ -333,11 +388,29 @@ class _ChatScreenState extends State<ChatScreen>
         });
       } else {
         print('❌ Failed to load messages: ${response.statusCode}');
+        _loadDemoMessages();
       }
     } catch (e) {
       print('❌ Error loading messages: $e');
+      _loadDemoMessages();
     }
     _scrollToBottom();
+  }
+
+  // Add a method for demo messages
+  void _loadDemoMessages() {
+    setState(() {
+      _messages = [
+        Message(
+          text: "Hello! How can I help you today?",
+          isMe: false,
+          timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
+          senderName: widget.laborerName,
+          roomId: _chatRoomId,
+          receiverName: "Me",
+        ),
+      ];
+    });
   }
 
   Future<void> _handleAttachment() async {

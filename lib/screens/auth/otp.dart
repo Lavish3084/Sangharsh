@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
 const String baseUrl =
-    'https://8402024d-94f3-49d9-a56d-2dc6043a9a34-00-2mher60iizzyr.pike.replit.dev';
+    'https://sangharsh-backend.onrender.com';
 
 class OTPScreen extends StatefulWidget {
   final String phoneNumber;
@@ -72,7 +72,7 @@ class _OTPScreenState extends State<OTPScreen> {
 
       final response = await http.post(
         Uri.parse(
-            'https://8402024d-94f3-49d9-a56d-2dc6043a9a34-00-2mher60iizzyr.pike.replit.dev/api/labors/auth/verify-otp'),
+            'https://sangharsh-backend.onrender.com/api/labors/auth/verify-otp'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'phoneNumber': widget.phoneNumber,
@@ -139,7 +139,7 @@ class _OTPScreenState extends State<OTPScreen> {
 
       final response = await http.post(
         Uri.parse(
-            'https://8402024d-94f3-49d9-a56d-2dc6043a9a34-00-2mher60iizzyr.pike.replit.dev/api/labors/auth/request-otp'),
+            'https://sangharsh-backend.onrender.com/api/labors/auth/request-otp'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'phoneNumber': widget.phoneNumber,

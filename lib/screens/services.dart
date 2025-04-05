@@ -6,6 +6,8 @@ import 'package:majdoor/screens/profiles/labourprofile.dart';
 import 'package:majdoor/services/labourmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:majdoor/providers/booking_provider.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ServicesScreen extends StatefulWidget {
   final String? initialCategory;
@@ -18,8 +20,8 @@ class ServicesScreen extends StatefulWidget {
 
 class _ServicesScreenState extends State<ServicesScreen> {
   String selectedCategory = 'All';
+  String selectedSort = 'Rating'; // Default sorting option
   TextEditingController searchController = TextEditingController();
-  final WorkerService _workerService = WorkerService();
   List<Worker> _workers = [];
   bool _isLoading = true;
 
@@ -34,6 +36,11 @@ class _ServicesScreenState extends State<ServicesScreen> {
     'Repair'
   ];
 
+  final List<String> sortingOptions = [
+    'Rating',
+    'Price',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -44,13 +51,19 @@ class _ServicesScreenState extends State<ServicesScreen> {
   Future<void> _loadWorkers() async {
     setState(() => _isLoading = true);
     try {
-      final workers = await _workerService.getWorkers();
-      setState(() {
-        _workers = workers;
-        _isLoading = false;
-      });
+      final response = await http.get(
+        Uri.parse('https://sangharsh-backend.onrender.com/api/labors'),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> workersJson = json.decode(response.body);
+        _workers = workersJson.map((json) => Worker.fromJson(json)).toList();
+      } else {
+        print('Error loading workers: ${response.body}');
+      }
     } catch (e) {
       print('Error loading workers: $e');
+    } finally {
       setState(() => _isLoading = false);
     }
   }
@@ -70,18 +83,31 @@ class _ServicesScreenState extends State<ServicesScreen> {
     }).toList();
   }
 
-  Widget _buildWorkerCard(Worker worker) {
-    // Get the booking status from the provider
-    final bookingProvider = Provider.of<BookingProvider>(context, listen: true);
-    final isBooked = bookingProvider.bookings.any((booking) =>
-        booking.workerName == worker.name &&
-        (booking.status == 'pending' || booking.status == 'confirmed'));
+  List<Worker> get sortedWorkers {
+    List<Worker> workers = filteredWorkers;
+    if (selectedSort == 'Rating') {
+      workers.sort(
+          (a, b) => b.rating.compareTo(a.rating)); // Sort by rating descending
+    } else if (selectedSort == 'Price') {
+      workers.sort((a, b) =>
+          a.pricePerDay.compareTo(b.pricePerDay)); // Sort by price ascending
+    }
+    return workers;
+  }
 
+  Widget _buildWorkerCard(Worker worker) {
     return Container(
       margin: EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -93,9 +119,6 @@ class _ServicesScreenState extends State<ServicesScreen> {
               backgroundImage: worker.imageUrl.isNotEmpty
                   ? NetworkImage(worker.imageUrl)
                   : null,
-              onBackgroundImageError: (e, s) {
-                print('Error loading image: ${worker.imageUrl}');
-              },
             ),
             title: Text(
               worker.name,
@@ -104,6 +127,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
               ),
+              overflow: TextOverflow.ellipsis,
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,6 +139,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                     color: Theme.of(context).textTheme.bodyMedium?.color,
                     fontSize: 14,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: 4),
                 Row(
@@ -129,10 +154,13 @@ class _ServicesScreenState extends State<ServicesScreen> {
                     Icon(Icons.currency_rupee,
                         color: Theme.of(context).textTheme.bodyMedium?.color,
                         size: 16),
-                    Text(
-                      '${worker.pricePerDay} Rupees/Day',
-                      style: GoogleFonts.roboto(
-                        color: Theme.of(context).textTheme.bodyMedium?.color,
+                    Flexible(
+                      child: Text(
+                        '${worker.pricePerDay} Rupees/Day',
+                        style: GoogleFonts.roboto(
+                          color: Theme.of(context).textTheme.bodyMedium?.color,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -145,8 +173,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                 color: Theme.of(context).primaryColor,
               ),
               onPressed: () async {
-                await _workerService.toggleBookmark(worker.id);
-                setState(() {});
+                // Implement bookmark toggle functionality
               },
             ),
           ),
@@ -154,70 +181,45 @@ class _ServicesScreenState extends State<ServicesScreen> {
             padding: EdgeInsets.all(16),
             child: SizedBox(
               width: double.infinity,
-              child: isBooked
-                  ? Container(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.check_circle,
-                              color: Colors.green, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            'Booked',
-                            style: GoogleFonts.montserrat(
-                              color: Colors.green,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ProfileScreen(
-                              labourer: Labourer(
-                                id: worker.id,
-                                name: worker.name,
-                                category: worker.category,
-                                rating: worker.rating,
-                                pricePerDay: worker.pricePerDay,
-                                imageUrl: worker.imageUrl,
-                                location: worker.location,
-                                reviews: worker.rating,
-                                Rs: worker.pricePerDay,
-                                specialization: worker.specialization ?? '',
-                                experience: worker.experience ?? 0,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).primaryColor,
-                        foregroundColor:
-                            Theme.of(context).colorScheme.onPrimary,
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        'Book Now',
-                        style: GoogleFonts.montserrat(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProfileScreen(
+                        labourer: Labourer(
+                          id: worker.id,
+                          name: worker.name,
+                          category: worker.category,
+                          rating: worker.rating,
+                          pricePerDay: worker.pricePerDay,
+                          imageUrl: worker.imageUrl,
+                          location: worker.location,
+                          reviews: 0, // Assuming you want to pass an empty list
+                          Rs: worker.pricePerDay,
+                          specialization: worker.specialization ?? '',
+                          experience: worker.experience ?? 0,
                         ),
                       ),
                     ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'Book Now',
+                  style: GoogleFonts.montserrat(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -230,130 +232,99 @@ class _ServicesScreenState extends State<ServicesScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-        elevation: 0,
-        leading: IconButton(
-          icon:
-              Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: Text(
           'Services',
-          style: GoogleFonts.montserrat(
-            color: Theme.of(context).textTheme.titleLarge?.color,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
+          style:
+              GoogleFonts.montserrat(fontSize: 20, fontWeight: FontWeight.w600),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.search, color: Theme.of(context).primaryColor),
-            onPressed: () {
-              // Implement search functionality
-            },
-          ),
-        ],
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                // Search Bar
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: TextField(
-                    controller: searchController,
-                    style: GoogleFonts.roboto(
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
-                    ),
-                    decoration: InputDecoration(
-                      fillColor: Theme.of(context).cardColor,
-                      filled: true,
-                      hintText: 'Search services...',
-                      hintStyle: GoogleFonts.roboto(
-                        color: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.color
-                            ?.withOpacity(0.5),
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Dropdown for category selection
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: DropdownButton<String>(
+                          value: selectedCategory,
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              selectedCategory = newValue!;
+                            });
+                          },
+                          isExpanded: true,
+                          items: categories
+                              .map<DropdownMenuItem<String>>((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            );
+                          }).toList(),
+                          underline: Container(
+                            height: 2,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                        ),
                       ),
-                      prefixIcon: Icon(Icons.search,
-                          color: Theme.of(context).primaryColor),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: DropdownButton<String>(
+                          value: selectedSort,
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              selectedSort = newValue!;
+                            });
+                          },
+                          isExpanded: true,
+                          items: sortingOptions
+                              .map<DropdownMenuItem<String>>((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            );
+                          }).toList(),
+                          underline: Container(
+                            height: 2,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16),
+                  // Search bar
+                  TextField(
+                    controller: searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search services...',
+                      border: OutlineInputBorder(),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide:
+                            BorderSide(color: Theme.of(context).primaryColor),
                       ),
                     ),
                     onChanged: (value) {
                       setState(() {});
                     },
                   ),
-                ),
-
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: categories.map((category) {
-                      bool isSelected = selectedCategory == category;
-                      return Padding(
-                        padding: EdgeInsets.only(
-                          left: category == categories.first ? 16 : 8,
-                          right: category == categories.last ? 16 : 8,
-                        ),
-                        child: InkWell(
-                          onTap: () {
-                            setState(() {
-                              selectedCategory = category;
-                            });
-                          },
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Theme.of(context).primaryColor
-                                  : Theme.of(context).cardColor,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: isSelected
-                                    ? Theme.of(context).primaryColor
-                                    : Theme.of(context).dividerColor,
-                                width: 1,
-                              ),
-                            ),
-                            child: Text(
-                              category,
-                              style: GoogleFonts.roboto(
-                                color: isSelected
-                                    ? Theme.of(context).colorScheme.onPrimary
-                                    : Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.color,
-                                fontWeight: isSelected
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
+                  SizedBox(height: 16),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: EdgeInsets.all(16),
+                      itemCount: sortedWorkers.length,
+                      itemBuilder: (context, index) {
+                        final worker = sortedWorkers[index];
+                        return _buildWorkerCard(worker);
+                      },
+                    ),
                   ),
-                ),
-
-                // Service List
-                Expanded(
-                  child: ListView.builder(
-                    padding: EdgeInsets.all(16),
-                    itemCount: filteredWorkers.length,
-                    itemBuilder: (context, index) {
-                      final worker = filteredWorkers[index];
-                      return _buildWorkerCard(worker);
-                    },
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
     );
   }

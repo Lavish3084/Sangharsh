@@ -4,6 +4,8 @@ import 'package:majdoor/screens/chat/chatscreen.dart';
 import 'package:flutter/services.dart';
 import 'package:majdoor/services/worker_service.dart';
 import 'package:majdoor/services/worker.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ChatDashboard extends StatefulWidget {
   const ChatDashboard({Key? key}) : super(key: key);
@@ -35,13 +37,19 @@ class _ChatDashboardState extends State<ChatDashboard>
     });
 
     try {
-      final workers = await _workerService.getWorkers();
-      setState(() {
-        _workers = workers;
-        _isLoading = false;
-      });
+      final response = await http.get(
+        Uri.parse('https://sangharsh-backend.onrender.com/api/labors'),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> workersJson = json.decode(response.body);
+        _workers = workersJson.map((json) => Worker.fromJson(json)).toList();
+      } else {
+        print('Error loading workers: ${response.body}');
+      }
     } catch (e) {
       print('Error loading workers: $e');
+    } finally {
       setState(() {
         _isLoading = false;
       });
@@ -283,10 +291,7 @@ class _ChatDashboardState extends State<ChatDashboard>
                 pricePerDay: worker.pricePerDay,
               ),
             ),
-          ).then((_) {
-            // Refresh the list when returning from chat screen
-            _loadWorkers();
-          });
+          );
         },
         borderRadius: BorderRadius.circular(16),
         child: Container(

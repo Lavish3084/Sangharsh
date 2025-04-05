@@ -135,7 +135,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     try {
       final response = await http.get(Uri.parse(
-          'https://8402024d-94f3-49d9-a56d-2dc6043a9a34-00-2mher60iizzyr.pike.replit.dev/api/labors'));
+          'https://sangharsh-backend.onrender.com/api/labors'));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
@@ -168,7 +168,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _isLoading = true);
     try {
       final response = await http.get(Uri.parse(
-          'https://8402024d-94f3-49d9-a56d-2dc6043a9a34-00-2mher60iizzyr.pike.replit.dev/api/labors'));
+          'https://sangharsh-backend.onrender.com/api/labors'));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
